@@ -1,0 +1,35 @@
+.header {
+  background-color: #3b82f6; /* Tailwind의 bg-blue-500 */
+  color: white;
+  text-align: center;
+  padding: 1rem;
+}
+
+.header-title {
+  font-size: 1.5rem; /* Tailwind의 text-2xl */
+  font-weight: bold;
+  margin: 0;
+}
+
+.header-subtitle {
+  font-size: 0.875rem; /* Tailwind의 text-sm */
+  margin: 0;
+}
+
+.main-title {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.map {
+  width: 90%;
+  height: 400px; /* Tailwind에서 h-125는 없는 클래스이므로 원하는 높이로 수정 */
+  margin: 0 auto;
+}
+
+.footer {
+  text-align: center;
+  color: #6b7280; /* Tailwind의 text-gray-500 */
+  font-size: 0.75rem; /* Tailwind의 text-xs */
+  margin-top: 1.5rem;
+}
