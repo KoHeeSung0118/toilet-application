@@ -1,7 +1,8 @@
 import { connectDB } from "@/util/database";
+import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcrypt';
 
-export default async function handler(요청, 응답) {
+export default async function handler(요청:NextApiRequest, 응답:NextApiResponse) {
   if (요청.method === 'POST') {
     const { email, password } = 요청.body;
 
