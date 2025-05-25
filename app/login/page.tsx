@@ -13,7 +13,7 @@ export default async function signup() {
         <Link href={'../signup'} style={{
           textDecoration: 'none',
           color: 'black',
-        }}>회원가입</Link>
+        }}>회원가입 버튼</Link>
       </button>
     </div>
   )

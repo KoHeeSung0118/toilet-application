@@ -7,7 +7,7 @@ export default async function signup() {
         <form action="/api/post/new" method="POST">
           <input name="email" placeholder="이메일" />
           <input name="password" placeholder="비밀번호" />
-          <button type="submit">가입</button>
+          <button type="submit">가입하기</button>
         </form>
         <button style={{
           marginTop:'20px'
