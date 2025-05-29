@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Link from "next/link";
+import { ToiletProvider } from '@/context/ToiletContext';
+import TabBar from "@/components/tabbar/TabBar";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -27,11 +28,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-                <div className="navbar">
-                  <Link href="/" className="logo">홈</Link>
-                  <Link href="/list">리스트</Link>
-                </div>
+        <ToiletProvider>
+          {children}
+        </ToiletProvider>
+        <TabBar></TabBar>
       </body>
     </html>
   );

@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb';
 
-const url = 'your-mongodb-url-here'; // 실제 URI로 바꿔줘!
+const url = process.env.MONGODB_URI!; // 실제 URI로 바꿔줘!
 let connectDB: Promise<MongoClient>;
 
 declare global {

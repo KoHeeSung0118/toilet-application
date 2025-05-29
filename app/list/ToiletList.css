@@ -1,0 +1,52 @@
+.toilet-card {
+  display: flex;
+  background-color: #E3F5FF; /* 배경색 */
+  padding: 1rem;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+  position: relative;
+  align-items: center;
+  gap: 1rem;
+}
+
+.left-section .favorite-icon {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  font-size: 0.9rem;
+  color: #6AA0BD; /* 댓글색과 어울리게 */
+  cursor: pointer;
+}
+
+.middle-section {
+  flex-grow: 1;
+  padding-left: 1.5rem; /* 별 아이콘 공간 확보 */
+}
+
+.toilet-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.toilet-rating {
+  font-size: 0.9rem;
+  color: #000;
+}
+
+.right-section {
+  text-align: right;
+  font-size: 0.8rem;
+  color: #6AA0BD; /* 댓글 색상 */
+}
+.toilet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 400px; /* 카드 최대 너비 고정 (예쁜 중앙 정렬용) */
+}
+.list-page {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}

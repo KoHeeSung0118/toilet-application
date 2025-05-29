@@ -1,35 +1,74 @@
-.header {
-  background-color: #3b82f6; /* Tailwind의 bg-blue-500 */
-  color: white;
-  text-align: center;
-  padding: 1rem;
+.map-wrapper {
+  padding: 10vh 5vw 12vh; /* 위: 검색창 자리 / 아래: 탭바 여백 */
+  display: flex;
+  justify-content: center;
 }
 
-.header-title {
-  font-size: 1.5rem; /* Tailwind의 text-2xl */
+.map-container {
+  width: 100%;
+  max-width: 90vw;
+  height: 75vh;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+}
+
+
+.toilet-overlay-box {
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 0;
+  width: 260px;
+  font-family: sans-serif;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
+}
+
+
+.toilet-overlay-box .header {
+  background-color: #E5E5E5; /* 상단 회색 */
+  padding: 10px;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #6AA0BD;
   font-weight: bold;
-  margin: 0;
+  font-size: 15px;
 }
 
-.header-subtitle {
-  font-size: 0.875rem; /* Tailwind의 text-sm */
-  margin: 0;
+.toilet-overlay-box .title {
+  flex: 1;
 }
 
-.main-title {
-  margin-top: 1rem;
-  text-align: center;
+.toilet-overlay-box .close-btn {
+  cursor: pointer;
+  font-size: 16px;
 }
 
-.map {
-  width: 90%;
-  height: 400px; /* Tailwind에서 h-125는 없는 클래스이므로 원하는 높이로 수정 */
-  margin: 0 auto;
+.toilet-overlay-box .rating {
+  padding: 8px 12px 0;
+  font-size: 16px;
 }
 
-.footer {
-  text-align: center;
-  color: #6b7280; /* Tailwind의 text-gray-500 */
-  font-size: 0.75rem; /* Tailwind의 text-xs */
-  margin-top: 1.5rem;
+.toilet-overlay-box .rating .filled {
+  color: #6AA0BD; /* 어두운 별 */
 }
+
+.toilet-overlay-box .rating .empty {
+  color: #C7EBFF; /* 밝은 별 */
+}
+
+.toilet-overlay-box .tags {
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toilet-overlay-box .tags span {
+  font-size: 13px;
+  color: #6AA0BD;
+}
+
