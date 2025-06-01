@@ -1,5 +1,6 @@
 .map-wrapper {
-  padding: 10vh 5vw 12vh; /* 위: 검색창 자리 / 아래: 탭바 여백 */
+  padding: 10vh 5vw 12vh;
+  /* 위: 검색창 자리 / 아래: 탭바 여백 */
   display: flex;
   justify-content: center;
 }
@@ -27,7 +28,8 @@
 
 
 .toilet-overlay-box .header {
-  background-color: #E5E5E5; /* 상단 회색 */
+  background-color: #E5E5E5;
+  /* 상단 회색 */
   padding: 10px;
   border-radius: 10px 10px 0 0;
   display: flex;
@@ -53,11 +55,13 @@
 }
 
 .toilet-overlay-box .rating .filled {
-  color: #6AA0BD; /* 어두운 별 */
+  color: #6AA0BD;
+  /* 어두운 별 */
 }
 
 .toilet-overlay-box .rating .empty {
-  color: #C7EBFF; /* 밝은 별 */
+  color: #C7EBFF;
+  /* 밝은 별 */
 }
 
 .toilet-overlay-box .tags {
@@ -72,3 +76,38 @@
   color: #6AA0BD;
 }
 
+.detail-link {
+  margin: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  color: #6AA0BD;
+}
+
+.search-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.search-bar input {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 200px;
+}
+
+.search-bar button {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  background-color: #6AA0BD;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}

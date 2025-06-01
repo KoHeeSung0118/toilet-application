@@ -1,0 +1,101 @@
+.detail-page {
+  padding: 20px;
+  font-family: 'Segoe UI', sans-serif;
+  color: #333;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* 상단 헤더 */
+.header {
+  background-color: #e7f3fa;
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1d4e89;
+}
+
+.rating {
+  margin: 10px 0;
+  color: #f5a623;
+  font-size: 20px;
+}
+
+/* 키워드/별점 추가 버튼 그룹 */
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-group a {
+  background-color: #d2ecf9;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #1d4e89;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.btn-group a:hover {
+  background-color: #b5e0f7;
+}
+
+/* 청결, 시설, 편의 정보 박스 */
+.tags-box {
+  background-color: #f5fafd;
+  padding: 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  color: #444;
+  font-size: 15px;
+  line-height: 1.7;
+  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 댓글 리스트 */
+.reviews {
+  background-color: #eef7fc;
+  padding: 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.reviews p {
+  margin: 8px 0;
+}
+
+.reviews strong {
+  color: #1d4e89;
+}
+
+/* 댓글 추가 버튼 */
+.comment-btn {
+  display: block;
+  width: 100%;
+  background-color: #1d4e89;
+  color: white;
+  font-size: 16px;
+  padding: 14px;
+  text-align: center;
+  border-radius: 12px;
+  text-decoration: none;
+  margin-top: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.comment-btn:hover {
+  background-color: #163d6a;
+}

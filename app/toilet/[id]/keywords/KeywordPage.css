@@ -1,0 +1,58 @@
+.keyword-page {
+  padding: 20px;
+  font-family: sans-serif;
+  text-align: center;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.rating {
+  color: #6AA0BD;
+  font-size: 20px;
+  margin: 8px 0 20px;
+}
+
+.keyword-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.keyword {
+  padding: 6px 12px;
+  border: 1px solid #6AA0BD;
+  border-radius: 20px;
+  background-color: white;
+  color: #6AA0BD;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.keyword.selected {
+  background-color: #6AA0BD;
+  color: white;
+}
+
+.submit-btn,
+.back-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 10px;
+}
+
+.submit-btn {
+  background-color: #6AA0BD;
+  color: white;
+}
+
+.back-btn {
+  background-color: #E5E5E5;
+}

@@ -1,0 +1,49 @@
+.comment-page {
+  padding: 20px;
+  font-family: sans-serif;
+  text-align: center;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.star-row {
+  margin-bottom: 20px;
+}
+
+.comment-box {
+  width: 100%; /* 가로 전체 너비 */
+  max-width: 500px; /* 너무 넓지 않도록 최대 너비 제한 */
+  margin: 20px auto; /* 가운데 정렬 */
+  display: block; /* 블록 요소로 만들어야 margin auto가 적용됨 */
+  padding: 10px;
+  height: 120px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  resize: none; /* 크기 조절 비활성화 (선택사항) */
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+
+.submit-btn,
+.back-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: none;
+  margin-top: 8px;
+}
+
+.submit-btn {
+  background-color: #6AA0BD;
+  color: white;
+}
+
+.back-btn {
+  background-color: #E5E5E5;
+}
