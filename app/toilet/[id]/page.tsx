@@ -1,6 +1,6 @@
 // 파일: app/toilet/[id]/page.tsx
 import './ToiletDetailPage.css';
-
+// 브랜치 테스트
 interface Toilet {
   place_name: string;
   cleanliness?: string;
