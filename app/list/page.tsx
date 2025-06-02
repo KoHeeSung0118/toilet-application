@@ -18,7 +18,7 @@ export default function ToiletListPage() {
                         return (
                             <li className="toilet-card" key={index}>
                                 <div className="left-section">
-                                    <FavoriteButton toiletId={toilet.id} />
+                                    <FavoriteButton toiletId={toilet.id} toilet={toilet} />
                                 </div>
                                 <div className="middle-section">
                                     <div className="toilet-name">
