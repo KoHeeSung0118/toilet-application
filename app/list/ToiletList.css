@@ -50,3 +50,22 @@
   justify-content: center;
   padding: 1rem;
 }
+/* ToiletList.css */
+
+.favorite-icon {
+  color: #ccc; /* 기본 회색 */
+  transition: color 0.3s ease;
+  font-size: 20px;
+  user-select: none;
+  cursor: pointer;
+}
+
+.favorite-icon:hover {
+  color: #6AA0BD; /* 진한 파랑색 hover 효과 */
+}
+
+/* 활성화된 상태일 때 별 색상 */
+.favorite-icon.active {
+  color: #6AA0BD;
+}
+
