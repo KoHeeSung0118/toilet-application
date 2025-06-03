@@ -18,7 +18,7 @@ export default function ToiletListPage() {
           {toiletList.map((toilet, index) => (
             <li className="toilet-card" key={index}>
               <div className="left-section">
-                <FavoriteButton toiletId={toilet.id} toilet={toilet} />
+                <FavoriteButton toiletId={toilet.id} placeName={toilet.place_name} />
               </div>
               <div className="middle-section">
                 <div className="toilet-name">
