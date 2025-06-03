@@ -1,13 +1,22 @@
-import './ToiletDetailPage.css';
+// ✅ app/toilet/[id]/page.tsx
+import './DetailPage.css';
 
 interface Toilet {
   place_name: string;
-  cleanliness?: string;
-  facility?: string;
-  convenience?: string;
+  cleanliness?: number;
+  facility?: number;
+  convenience?: number;
   keywords?: string[];
   reviews?: { user: string; comment: string }[];
+  overallRating?: number; // 평균 별점 필드 추가
 }
+
+const getRatingStatus = (score?: number): string => {
+  if (score === undefined || score === null) return '정보 없음';
+  if (score >= 4) return '좋음';
+  if (score >= 2.5) return '보통';
+  return '나쁨';
+};
 
 export default async function ToiletDetailPage({
   params,
@@ -15,7 +24,7 @@ export default async function ToiletDetailPage({
 }: {
   params: { id: string };
   searchParams: { place_name?: string };
-}) {
+}) {``
   const placeName = searchParams.place_name ?? '';
 
   const res = await fetch(
@@ -32,17 +41,21 @@ export default async function ToiletDetailPage({
     <div className="detail-page">
       <div className="header">
         <h2>{toilet.place_name || '이름 없음'}</h2>
-        <div className="rating">★★★★☆</div>
+        <div className="rating">
+          {'★'.repeat(Math.round(toilet.overallRating || 0)).padEnd(5, '☆')} (
+          {toilet.overallRating?.toFixed(1) ?? '0.0'})
+        </div>
         <div className="btn-group">
           <a href={`/toilet/${params.id}/keywords?place_name=${encodedName}`}>키워드 추가하기</a>
           <a href={`/toilet/${params.id}/rate?place_name=${encodedName}`}>별점 추가하기</a>
         </div>
       </div>
 
+      {/* 평점 → 해석 */}
       <div className="tags-box">
-        <div>청결: {toilet.cleanliness || '정보 없음'}</div>
-        <div>시설: {toilet.facility || '정보 없음'}</div>
-        <div>편의: {toilet.convenience || '정보 없음'}</div>
+        <div>청결: {getRatingStatus(toilet.cleanliness)}</div>
+        <div>시설: {getRatingStatus(toilet.facility)}</div>
+        <div>편의: {getRatingStatus(toilet.convenience)}</div>
       </div>
 
       {/* 키워드 출력 */}
@@ -56,6 +69,7 @@ export default async function ToiletDetailPage({
         <p style={{ marginTop: '1rem' }}>등록된 키워드가 없습니다.</p>
       )}
 
+      {/* 리뷰 출력 */}
       <div className="reviews">
         {toilet.reviews?.length > 0 ? (
           toilet.reviews.map((review, idx) => (

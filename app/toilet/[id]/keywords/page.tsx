@@ -1,17 +1,27 @@
-// app/toilet/[id]/keywords/page.tsx
-
+// ✅ app/toilet/[id]/keywords/page.tsx
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import './KeywordPage.css';
 
-const KEYWORDS = ['화장실 비데', '장애인 화장실', '성별 분리', '비데 설치', '휴지 많음', '물 잘나옴', '냄새 좋음'];
+const KEYWORDS = [
+  '화장실 칸 많음',
+  '화장실 칸 적음',
+  '장애인 화장실',
+  '성별 분리',
+  '비데 설치 되어있음',
+  '휴지 많음',
+  '물 잘나옴',
+  '냄새 좋음'
+];
 
-export default function KeywordPage({ params }: { params: { id: string } }) {
+export default function KeywordPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const id = params?.id as string;
   const placeName = searchParams.get('place_name') ?? '이름 미정';
 
   const toggleKeyword = (word: string) => {
@@ -21,10 +31,10 @@ export default function KeywordPage({ params }: { params: { id: string } }) {
   };
 
   const handleSubmit = async () => {
-    const res = await fetch(`/api/toilet/${params.id}/keywords`, {
+    const res = await fetch(`/api/toilet/${id}/keywords`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keywords: selected }),
+      body: JSON.stringify({ keywords: selected })
     });
 
     if (res.ok) {
@@ -35,7 +45,7 @@ export default function KeywordPage({ params }: { params: { id: string } }) {
   };
 
   return (
-    <div className="keyword-page">
+    <div className="page-container">
       <h2 className="title">{placeName}</h2>
       <div className="keyword-list">
         {KEYWORDS.map((word, i) => (

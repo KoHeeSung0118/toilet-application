@@ -1,49 +1,53 @@
-.comment-page {
+/* ✅ CommentPage.css */
+.page-container {
+  max-width: 500px;
+  margin: 0 auto;
   padding: 20px;
-  font-family: sans-serif;
-  text-align: center;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #fff;
+  min-height: calc(100vh - 60px);
 }
 
 .title {
   font-size: 24px;
   font-weight: bold;
-  margin-bottom: 12px;
+  color: #1D4E89;
+  text-align: center;
+  margin-bottom: 20px;
 }
 
 .star-row {
+  text-align: center;
   margin-bottom: 20px;
 }
 
 .comment-box {
-  width: 100%; /* 가로 전체 너비 */
-  max-width: 500px; /* 너무 넓지 않도록 최대 너비 제한 */
-  margin: 20px auto; /* 가운데 정렬 */
-  display: block; /* 블록 요소로 만들어야 margin auto가 적용됨 */
-  padding: 10px;
+  width: 100%;
+  padding: 12px;
   height: 120px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  resize: none; /* 크기 조절 비활성화 (선택사항) */
   font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  resize: none;
   box-sizing: border-box;
 }
-
 
 .submit-btn,
 .back-btn {
   width: 100%;
   padding: 12px;
   font-size: 16px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .submit-btn {
-  background-color: #6AA0BD;
+  background-color: #1D4E89;
   color: white;
 }
 
 .back-btn {
   background-color: #E5E5E5;
+  color: black;
 }

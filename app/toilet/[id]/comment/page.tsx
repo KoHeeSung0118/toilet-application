@@ -1,3 +1,4 @@
+// ✅ app/toilet/[id]/comment/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -23,10 +24,7 @@ export default function CommentPage({ params }: { params: { id: string } }) {
       const res = await fetch(`/api/toilet/${params.id}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user: '익명',
-          comment,
-        }),
+        body: JSON.stringify({ user: '익명', comment })
       });
 
       if (res.ok) {
@@ -44,20 +42,12 @@ export default function CommentPage({ params }: { params: { id: string } }) {
   };
 
   return (
-    <div className="comment-page">
+    <div className="page-container">
       <h2 className="title">{placeName}</h2>
 
       <div className="star-row">
         {[...Array(5)].map((_, i) => (
-          <span
-            key={i}
-            style={{
-              color: i < 3 ? '#6AA0BD' : '#C7EBFF',
-              fontSize: '24px',
-            }}
-          >
-            ★
-          </span>
+          <span key={i} style={{ color: i < 3 ? '#F5A623' : '#DDD', fontSize: '24px' }}>★</span>
         ))}
       </div>
 

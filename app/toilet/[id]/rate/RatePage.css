@@ -1,4 +1,4 @@
-/* ✅ KeywordPage.css */
+/* ✅ RatePage.css */
 .page-container {
   max-width: 500px;
   margin: 0 auto;
@@ -16,28 +16,17 @@
   text-align: center;
 }
 
-.keyword-list {
+.label-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-  margin-bottom: 20px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 16px;
 }
 
-.keyword {
-  padding: 6px 14px;
-  border: 1px solid #1D4E89;
-  border-radius: 20px;
-  background-color: white;
-  color: #1D4E89;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.keyword.selected {
-  background-color: #1D4E89;
-  color: white;
+.star-row {
+  display: flex;
+  gap: 4px;
 }
 
 .submit-btn,
