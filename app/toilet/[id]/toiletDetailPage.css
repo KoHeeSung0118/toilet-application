@@ -99,3 +99,18 @@
 .comment-btn:hover {
   background-color: #163d6a;
 }
+
+.keyword-box {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag {
+  background-color: #e3f5ff;
+  color: #333;
+  padding: 0.3rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.85rem;
+}

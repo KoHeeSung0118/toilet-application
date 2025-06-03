@@ -10,11 +10,37 @@ export default function CommentPage({ params }: { params: { id: string } }) {
   const placeName = searchParams.get('place_name') ?? '이름 미정';
 
   const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    console.log('📝 댓글 내용:', comment);
-    // TODO: POST 요청으로 서버에 전송
-    router.back();
+  const handleSubmit = async () => {
+    if (!comment.trim()) {
+      alert('댓글을 입력하세요.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/toilet/${params.id}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: '익명',
+          comment,
+        }),
+      });
+
+      if (res.ok) {
+        alert('댓글이 등록되었습니다.');
+        router.back();
+      } else {
+        alert('댓글 등록에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('댓글 등록 오류:', err);
+      alert('오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,8 +68,12 @@ export default function CommentPage({ params }: { params: { id: string } }) {
         onChange={(e) => setComment(e.target.value)}
       />
 
-      <button className="submit-btn" onClick={handleSubmit}>등록 하기</button>
-      <button className="back-btn" onClick={() => router.back()}>뒤로 가기</button>
+      <button className="submit-btn" onClick={handleSubmit} disabled={loading}>
+        {loading ? '등록 중...' : '등록 하기'}
+      </button>
+      <button className="back-btn" onClick={() => router.back()}>
+        뒤로 가기
+      </button>
     </div>
   );
 }

@@ -5,6 +5,7 @@ interface Toilet {
   cleanliness?: string;
   facility?: string;
   convenience?: string;
+  keywords?: string[];
   reviews?: { user: string; comment: string }[];
 }
 
@@ -43,6 +44,17 @@ export default async function ToiletDetailPage({
         <div>시설: {toilet.facility || '정보 없음'}</div>
         <div>편의: {toilet.convenience || '정보 없음'}</div>
       </div>
+
+      {/* 키워드 출력 */}
+      {toilet.keywords?.length ? (
+        <div className="keyword-box">
+          {toilet.keywords.map((kw, idx) => (
+            <span key={idx} className="tag">#{kw}</span>
+          ))}
+        </div>
+      ) : (
+        <p style={{ marginTop: '1rem' }}>등록된 키워드가 없습니다.</p>
+      )}
 
       <div className="reviews">
         {toilet.reviews?.length > 0 ? (
