@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import FavoriteButton from '@/components/favorite/FavoriteButton';
+import Link from 'next/link';
 import '../list/ToiletList.css';
 
 export default function FavoritesPage() {
@@ -28,10 +29,17 @@ export default function FavoritesPage() {
           {favorites.map((toilet, index) => (
             <li key={index} className="toilet-card">
               <div className="left-section">
-                <FavoriteButton toiletId={toilet.id} toilet={toilet} />
+                <FavoriteButton
+                  toiletId={toilet.id}
+                  placeName={toilet.place_name || '이름 없음'}
+                />
               </div>
               <div className="middle-section">
-                <div className="toilet-name"><strong>{toilet.place_name}</strong></div>
+                <div className="toilet-name">
+                  <Link href={`/toilet/${toilet.id}`} className="toilet-name-link">
+                    <strong>{toilet.place_name}</strong>
+                  </Link>
+                </div>
                 <div className="toilet-rating">★★★★☆</div>
               </div>
               <div className="right-section">

@@ -1,6 +1,5 @@
-// 파일: app/toilet/[id]/page.tsx
 import './ToiletDetailPage.css';
-// 브랜치 테스트
+
 interface Toilet {
   place_name: string;
   cleanliness?: string;
@@ -26,6 +25,7 @@ export default async function ToiletDetailPage({
   if (!res.ok) return <p>화장실 정보를 찾을 수 없습니다.</p>;
 
   const toilet: Toilet = await res.json();
+  const encodedName = encodeURIComponent(toilet.place_name || '이름 없음');
 
   return (
     <div className="detail-page">
@@ -33,8 +33,8 @@ export default async function ToiletDetailPage({
         <h2>{toilet.place_name || '이름 없음'}</h2>
         <div className="rating">★★★★☆</div>
         <div className="btn-group">
-          <a href={`/toilet/${params.id}/keywords`}>키워드 추가하기</a>
-          <a href={`/toilet/${params.id}/rate`}>별점 추가하기</a>
+          <a href={`/toilet/${params.id}/keywords?place_name=${encodedName}`}>키워드 추가하기</a>
+          <a href={`/toilet/${params.id}/rate?place_name=${encodedName}`}>별점 추가하기</a>
         </div>
       </div>
 
@@ -56,7 +56,10 @@ export default async function ToiletDetailPage({
         )}
       </div>
 
-      <a className="comment-btn" href={`/toilet/${params.id}/comment`}>
+      <a
+        className="comment-btn"
+        href={`/toilet/${params.id}/comment?place_name=${encodedName}`}
+      >
         댓글 추가하기
       </a>
     </div>

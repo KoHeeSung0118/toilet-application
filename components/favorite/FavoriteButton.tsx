@@ -1,59 +1,50 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import '../../app/list/ToiletList.css';
 
-interface FavoriteButtonProps {
+interface Props {
   toiletId: string;
-  toilet?: any;
+  placeName: string; // 반드시 제공돼야 함
 }
 
-export default function FavoriteButton({ toiletId, toilet }: FavoriteButtonProps) {
+export default function FavoriteButton({ toiletId, placeName }: Props) {
   const [isFavorite, setIsFavorite] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!toiletId) return;
-
-    const fetchFavoriteStatus = async () => {
-      try {
-        const res = await fetch(`/api/favorite/status?toiletId=${toiletId}`, {
-          credentials: 'include',
-        });
-        const data = await res.json();
-        setIsFavorite(data.isFavorite);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFavoriteStatus();
+    fetch(`/api/favorite/status?toiletId=${toiletId}`, {
+      credentials: 'include',
+    })
+      .then((res) => res.json())
+      .then((data) => setIsFavorite(data.isFavorite));
   }, [toiletId]);
 
   const toggleFavorite = async () => {
-    try {
-      const res = await fetch('/api/favorite/toggle', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toiletId, toilet }),
-      });
-      const data = await res.json();
-      setIsFavorite(data.isFavorite);
-    } catch (err) {
-      console.error(err);
+    const res = await fetch('/api/favorite/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        toiletId,
+        toilet: {
+          id: toiletId,
+          place_name: placeName,
+        },
+      }),
+    });
+
+    if (res.ok) {
+      const result = await res.json();
+      setIsFavorite(result.isFavorite);
     }
   };
 
-  if (loading) return <span className="favorite-icon">☆</span>;
-
   return (
-    <span
+    <button
       className={`favorite-icon ${isFavorite ? 'active' : ''}`}
       onClick={toggleFavorite}
     >
       {isFavorite ? '★' : '☆'}
-    </span>
+    </button>
   );
 }

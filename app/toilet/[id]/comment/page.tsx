@@ -1,33 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import './CommentPage.css';
 
 export default function CommentPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-
-  // 평균 별점 (예시)
-  const averageRating = 3.6;
+  const searchParams = useSearchParams();
+  const placeName = searchParams.get('place_name') ?? '이름 미정';
 
   const [comment, setComment] = useState('');
 
   const handleSubmit = () => {
     console.log('📝 댓글 내용:', comment);
-    // 추후: fetch(`/api/toilet/${params.id}/comment`, { method: 'POST', body: JSON.stringify({ comment }) })
+    // TODO: POST 요청으로 서버에 전송
     router.back();
   };
 
   return (
     <div className="comment-page">
-      <h2 className="title">a화장실</h2>
+      <h2 className="title">{placeName}</h2>
 
       <div className="star-row">
         {[...Array(5)].map((_, i) => (
           <span
             key={i}
             style={{
-              color: i < Math.round(averageRating) ? '#6AA0BD' : '#C7EBFF',
+              color: i < 3 ? '#6AA0BD' : '#C7EBFF',
               fontSize: '24px',
             }}
           >

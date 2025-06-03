@@ -53,6 +53,7 @@
 /* ToiletList.css */
 
 .favorite-icon {
+  background-color: transparent; /* 👉 버튼 배경 없애기 */
   color: #ccc; /* 기본 회색 */
   transition: color 0.3s ease;
   font-size: 20px;
@@ -67,5 +68,16 @@
 /* 활성화된 상태일 때 별 색상 */
 .favorite-icon.active {
   color: #6AA0BD;
+}
+
+
+.toilet-name-link {
+  text-decoration: none;
+  color: black;
+  cursor: pointer;
+}
+
+.toilet-name-link:hover {
+  text-decoration: underline;
 }
 
