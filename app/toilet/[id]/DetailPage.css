@@ -12,6 +12,7 @@
 
 /* 상단 헤더 */
 .header {
+  position: relative; /* ✅ 추가 */
   background-color: #e7f3fa;
   padding: 20px;
   border-radius: 14px;
@@ -106,7 +107,7 @@
 /* 댓글 추가 버튼 */
 .comment-btn {
   display: block;
-  width: 100%;
+
   background-color: #1d4e89;
   color: white;
   font-size: 16px;
@@ -120,4 +121,40 @@
 
 .comment-btn:hover {
   background-color: #163d6a;
+}
+
+
+.favorite-wrapper {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+}
+
+/* 별 버튼에 기본 크기 부여 (컴포넌트 내부에서도 가능하지만 외부에서 컨트롤하기 쉬움) */
+.favorite-wrapper button {
+  font-size: 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #1d4e89;
+  cursor: pointer;
+  margin-bottom: 14px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.back-button:hover {
+  background-color: #eef4fc;
 }

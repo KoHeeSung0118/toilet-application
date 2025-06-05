@@ -1,5 +1,7 @@
 // ✅ app/toilet/[id]/page.tsx
 import './DetailPage.css';
+import FavoriteButton from '@/components/favorite/FavoriteButton';
+import ClientOnlyBackButton from '@/components/detail/ClientOnlyBackButton';
 
 interface Toilet {
   place_name: string;
@@ -24,7 +26,7 @@ export default async function ToiletDetailPage({
 }: {
   params: { id: string };
   searchParams: { place_name?: string };
-}) {``
+}) {
   const placeName = searchParams.place_name ?? '';
 
   const res = await fetch(
@@ -39,7 +41,12 @@ export default async function ToiletDetailPage({
 
   return (
     <div className="detail-page">
+      <ClientOnlyBackButton />
       <div className="header">
+        <div className="favorite-wrapper">
+          <FavoriteButton toiletId={params.id} placeName={toilet.place_name} />
+        </div>
+
         <h2>{toilet.place_name || '이름 없음'}</h2>
         <div className="rating">
           {'★'.repeat(Math.round(toilet.overallRating || 0)).padEnd(5, '☆')} (

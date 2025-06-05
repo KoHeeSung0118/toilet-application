@@ -16,7 +16,7 @@ export default function FavoriteButton({ toiletId, placeName }: Props) {
       credentials: 'include',
     })
       .then((res) => res.json())
-      .then((data) => setIsFavorite(data.isFavorite));
+      .then((data) => seWtIsFavorite(data.isFavorite));
   }, [toiletId]);
 
   const toggleFavorite = async () => {
