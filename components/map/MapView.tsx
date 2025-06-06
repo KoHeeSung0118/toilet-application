@@ -24,12 +24,8 @@ export default function MapView() {
     script.onload = () => {
       window.kakao.maps.load(() => {
         navigator.geolocation.getCurrentPosition(
-          (position) => {
-            initMap(position.coords.latitude, position.coords.longitude);
-          },
-          () => {
-            initMap(37.5665, 126.9780); // 기본 위치: 서울시청
-          }
+          (position) => initMap(position.coords.latitude, position.coords.longitude),
+          () => initMap(37.5665, 126.9780)
         );
       });
     };
@@ -53,20 +49,18 @@ export default function MapView() {
       async (data, status) => {
         if (status !== window.kakao.maps.services.Status.OK) return;
 
-        // 🔄 각 화장실에 대해 MongoDB에서 정보 보강
         const enriched = await Promise.all(
           data.map(async (place) => {
             try {
               const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
               if (!res.ok) throw new Error();
               const dbData = await res.json();
-
               return {
                 ...place,
                 overallRating: dbData.overallRating ?? 3,
                 reviews: dbData.reviews ?? [],
               };
-            } catch (e) {
+            } catch {
               return {
                 ...place,
                 overallRating: 3,
@@ -78,7 +72,6 @@ export default function MapView() {
 
         setToiletList(enriched);
 
-        // 🔽 오버레이 생성
         let currentOverlay: any = null;
         enriched.forEach((place) => {
           const marker = new window.kakao.maps.Marker({
@@ -113,9 +106,7 @@ export default function MapView() {
 
             setTimeout(() => {
               const closeBtn = document.getElementById(`close-${place.id}`);
-              if (closeBtn) {
-                closeBtn.onclick = () => overlay.setMap(null);
-              }
+              if (closeBtn) closeBtn.onclick = () => overlay.setMap(null);
             }, 0);
           });
         });

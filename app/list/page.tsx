@@ -1,4 +1,3 @@
-// 깔끔하게 정리된 ToiletListPage.tsx
 'use client';
 
 import { useToilet } from '@/context/ToiletContext';
@@ -34,7 +33,10 @@ export default function ToiletListPage() {
                   </div>
 
                   <div className="toilet-rating">
-                    {'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})
+                    <span className="star-colored">
+                      {'★'.repeat(Math.round(rating)).padEnd(5, '☆')}
+                    </span>{' '}
+                    ({rating.toFixed(1)})
                   </div>
                 </div>
 

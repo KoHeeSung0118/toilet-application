@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcrypt';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log('요청 메서드:', req.method); // ✅ 실제 어떤 요청인지 확인
+  // console.log('요청 메서드:', req.method); // ✅ 실제 어떤 요청인지 확인
   if (req.method === 'POST') {
     const { email, password, passwordConfirm } = req.body;
 

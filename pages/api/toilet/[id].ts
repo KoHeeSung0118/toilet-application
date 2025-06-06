@@ -3,41 +3,68 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
+  const { id, place_name = '이름 미정' } = req.query;
 
-  if (!id || typeof id !== 'string') {
+  if (typeof id !== 'string') {
     return res.status(400).json({ error: '잘못된 요청입니다.' });
   }
 
   const db = (await connectDB).db('toilet_app');
-  const toilet = await db.collection('toilets').findOne({ id });
+  let toilet = await db.collection('toilets').findOne({ id });
 
+  // 📌 없으면 새로 등록
   if (!toilet) {
-    return res.status(404).json({ error: '해당 화장실을 찾을 수 없습니다.' });
+    toilet = {
+      id,
+      place_name,
+      address_name: '',
+      road_address_name: '',
+      x: '',
+      y: '',
+      keywords: [],
+      reviews: [],
+      cleanliness: 3,
+      facility: 3,
+      convenience: 3,
+      overallRating: 3,
+    };
+
+    await db.collection('toilets').insertOne(toilet);
   }
 
-  // Decimal128 같은 경우 parseFloat를 사용해서 숫자로 바꿔준다
-  const parseDecimal = (v: any) => {
-    if (typeof v === 'object' && v !== null) {
-      // MongoDB Decimal128 형태일 때
-      if (v.$numberDecimal) return parseFloat(v.$numberDecimal);
+  const parseDecimal = (v: any): number | undefined => {
+    if (typeof v === 'object' && v?.$numberDecimal) {
+      return parseFloat(v.$numberDecimal);
     }
-    return v;
+    return typeof v === 'number' ? v : undefined;
   };
 
-  // 응답할 필드를 명확히 지정
+  const {
+    place_name: name,
+    address_name,
+    road_address_name,
+    x,
+    y,
+    keywords,
+    reviews,
+    cleanliness,
+    facility,
+    convenience,
+    overallRating,
+  } = toilet;
+
   return res.status(200).json({
-    id: toilet.id,
-    place_name: toilet.place_name,
-    address_name: toilet.address_name ?? '',
-    road_address_name: toilet.road_address_name ?? '',
-    x: toilet.x ?? '',
-    y: toilet.y ?? '',
-    keywords: Array.isArray(toilet.keywords) ? toilet.keywords : [],
-    reviews: Array.isArray(toilet.reviews) ? toilet.reviews : [],
-    cleanliness: parseDecimal(toilet.cleanliness),
-    facility: parseDecimal(toilet.facility),
-    convenience: parseDecimal(toilet.convenience),
-    overallRating: parseDecimal(toilet.overallRating),
+    id,
+    place_name: name,
+    address_name: address_name ?? '',
+    road_address_name: road_address_name ?? '',
+    x: x ?? '',
+    y: y ?? '',
+    keywords: Array.isArray(keywords) ? keywords : [],
+    reviews: Array.isArray(reviews) ? reviews : [],
+    cleanliness: parseDecimal(cleanliness),
+    facility: parseDecimal(facility),
+    convenience: parseDecimal(convenience),
+    overallRating: parseDecimal(overallRating),
   });
 }

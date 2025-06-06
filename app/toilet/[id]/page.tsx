@@ -49,8 +49,8 @@ export default async function ToiletDetailPage({
   toilet.cleanliness = Number(toilet.cleanliness);
   toilet.facility = Number(toilet.facility);
   toilet.convenience = Number(toilet.convenience);
-  console.log('⭐ typeof overallRating:', typeof toilet.overallRating, toilet.overallRating);
-  console.log('✅ toilet detail:', toilet); // ✨ 여기서 전체 데이터를 로그로 찍어 확인
+  // console.log('⭐ typeof overallRating:', typeof toilet.overallRating, toilet.overallRating);
+  // console.log('✅ toilet detail:', toilet); // ✨ 여기서 전체 데이터를 로그로 찍어 확인
 
   // overallRating이 숫자가 아닌 경우 3점으로 기본값
   const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;

@@ -81,3 +81,7 @@
   text-decoration: underline;
 }
 
+.star-colored {
+  color: #f5a623;
+  font-weight: bold;
+}
