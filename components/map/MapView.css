@@ -1,20 +1,79 @@
+/* ✅ 기본 레이아웃 */
 .map-wrapper {
-  padding: 10vh 5vw 12vh;
-  /* 위: 검색창 자리 / 아래: 탭바 여백 */
+  padding: 1rem;
+  height: 93vh;
+  box-sizing: border-box;
   display: flex;
+  flex-direction: column;
+}
+
+.top-ui {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.keyword-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter-btn {
+  border: 1px solid #6AA0BD;
+  background-color: white;
+  color: #6AA0BD;
+  padding: 0.3rem 0.7rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.filter-btn.active {
+  background-color: #D9EDF7;
+}
+
+.search-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.search-bar button {
+  padding: 0.4rem 0.8rem;
+  background-color: #6AA0BD;
+  color: white;
+  border: none;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  font-weight: bold;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
-.map-container {
-  width: 100%;
-  max-width: 90vw;
-  height: 75vh;
-  border-radius: 1.5rem;
-  overflow: hidden;
-  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+.search-bar button:hover {
+  background-color: #5b90ab;
 }
 
+.map-container {
+  flex: 1;
+  border-radius: 1rem;
+  overflow: hidden;
+}
 
+/* ✅ 오버레이 스타일 */
 .toilet-overlay-box {
   background-color: white;
   border: 1px solid #ccc;
@@ -26,10 +85,8 @@
   font-size: 14px;
 }
 
-
 .toilet-overlay-box .header {
   background-color: #E5E5E5;
-  /* 상단 회색 */
   padding: 10px;
   border-radius: 10px 10px 0 0;
   display: flex;
@@ -52,16 +109,8 @@
 .toilet-overlay-box .rating {
   padding: 8px 12px 0;
   font-size: 16px;
-}
-
-.toilet-overlay-box .rating .filled {
-  color: #6AA0BD;
-  /* 어두운 별 */
-}
-
-.toilet-overlay-box .rating .empty {
-  color: #C7EBFF;
-  /* 밝은 별 */
+  color: #f5a623;
+  font-weight: bold;
 }
 
 .toilet-overlay-box .tags {
@@ -83,35 +132,7 @@
   color: #6AA0BD;
 }
 
-.search-bar {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: white;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-}
-
-.search-bar input {
-  padding: 0.4rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 200px;
-}
-
-.search-bar button {
-  padding: 0.4rem 0.8rem;
-  border: none;
-  background-color: #6AA0BD;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
+/* ✅ 키워드 태그 (상세) */
 .keywords {
   margin: 4px 0 6px;
   font-size: 13px;
