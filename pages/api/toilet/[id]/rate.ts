@@ -7,7 +7,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query;
   const { overall, cleanliness, facility, convenience } = req.body;
 
-  if (!id || !overall || !cleanliness || !facility || !convenience) {
+  // ✅ 0점도 허용되도록 수정
+  if (
+    !id ||
+    overall === undefined || cleanliness === undefined ||
+    facility === undefined || convenience === undefined
+  ) {
     return res.status(400).json({ error: '필수 항목 누락' });
   }
 
@@ -17,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 1. 기존 데이터 가져오기
     const toilet = await db.collection('toilets').findOne({ id });
 
-    // 2. 배열 초기화 or 기존 값 가져오기
+    // 2. 배열 초기화 or 기존 값 유지
     const cleanlinessRatings = toilet?.cleanlinessRatings ?? [];
     const facilityRatings = toilet?.facilityRatings ?? [];
     const convenienceRatings = toilet?.convenienceRatings ?? [];
@@ -29,9 +34,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     convenienceRatings.push(convenience);
     overallRatings.push(overall);
 
-    // 4. 평균 계산
+    // 4. 평균 계산 (소수점 한 자리)
     const avg = (arr: number[]) =>
-      arr.reduce((acc, cur) => acc + cur, 0) / arr.length;
+      Math.round(arr.reduce((acc, cur) => acc + cur, 0) / arr.length * 10) / 10;
 
     const updated = {
       $set: {
@@ -49,7 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     };
 
-    // 5. 업데이트
+    // 5. DB 업데이트
     const result = await db.collection('toilets').updateOne(
       { id },
       updated,

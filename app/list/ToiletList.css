@@ -62,12 +62,12 @@
 }
 
 .favorite-icon:hover {
-  color: #6AA0BD; /* 진한 파랑색 hover 효과 */
+  color: #efdd3f; /* 진한 파랑색 hover 효과 */
 }
 
 /* 활성화된 상태일 때 별 색상 */
 .favorite-icon.active {
-  color: #6AA0BD;
+  color: #efdd3f;
 }
 
 

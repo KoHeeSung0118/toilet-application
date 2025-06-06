@@ -1,4 +1,4 @@
-// ✅ app/toilet/[id]/rate/page.tsx
+// app/toilet/[id]/rate/page.tsx
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
@@ -31,20 +31,25 @@ export default function RatingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ overall, cleanliness: clean, facility, convenience })
     });
-    if (res.ok) router.back();
-    else alert('별점 등록에 실패했습니다.');
+
+    if (res.ok) {
+      // 🔄 하드 리프레시 방식으로 detail 페이지 다시 로드
+      window.location.href = `/toilet/${id}?place_name=${encodeURIComponent(placeName)}`;
+    } else {
+      alert('별점 등록에 실패했습니다.');
+    }
   };
 
-  const renderStars = (score: number, setter: (v: number) => void) => (
+  const renderStars = (score: number, setter: (v: number) => void) =>
     [...Array(5)].map((_, i) => (
       <span
         key={i}
         onClick={() => setter(i + 1)}
-        style={{ color: i < score ? '#F5A623' : '#DDD', fontSize: '24px', cursor: 'pointer' }}>
+        style={{ color: i < score ? '#F5A623' : '#DDD', fontSize: '24px', cursor: 'pointer' }}
+      >
         ★
       </span>
-    ))
-  );
+    ));
 
   return (
     <div className="page-container">

@@ -1,7 +1,7 @@
-// /pages/api/favorite/list.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
 import jwt from 'jsonwebtoken';
+import { ObjectId } from 'mongodb';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = req.cookies.token;
@@ -18,16 +18,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const db = (await connectDB).db('toilet_app');
-  const user = await db.collection('users').findOne({ _id: new (require('mongodb')).ObjectId(userId) });
+  const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
 
   if (!user || !Array.isArray(user.favorites)) {
     return res.status(200).json([]);
   }
 
+  // 즐겨찾기된 화장실 정보 가져오기
   const toilets = await db
-    .collection('toilets') // ← 이 컬렉션에 즐겨찾기한 화장실 정보가 들어 있어야 해!
+    .collection('toilets')
     .find({ id: { $in: user.favorites } })
     .toArray();
 
-  res.status(200).json(toilets);
+  // ❗ 평점이 없으면 3.0 기본값으로 설정
+  const processed = toilets.map((toilet) => ({
+    ...toilet,
+    overallRating: toilet.overallRating ?? 3.0,
+  }));
+
+  res.status(200).json(processed);
 }

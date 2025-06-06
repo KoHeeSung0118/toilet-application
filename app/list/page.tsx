@@ -1,4 +1,4 @@
-// ✅ app/list/page.tsx
+// 깔끔하게 정리된 ToiletListPage.tsx
 'use client';
 
 import { useToilet } from '@/context/ToiletContext';
@@ -15,30 +15,40 @@ export default function ToiletListPage() {
         <p>화장실을 불러오는 중입니다...</p>
       ) : (
         <ul className="toilet-list">
-          {toiletList.map((toilet, index) => (
-            <li className="toilet-card" key={index}>
-              <div className="left-section">
-                <FavoriteButton toiletId={toilet.id} placeName={toilet.place_name} />
-              </div>
-              <div className="middle-section">
-                <div className="toilet-name">
-                  <Link
-                    href={`/toilet/${toilet.id}?place_name=${encodeURIComponent(
-                      toilet.place_name
-                    )}`}
-                    className="toilet-name-link"
-                  >
-                    <strong>{toilet.place_name}</strong>
-                  </Link>
+          {toiletList.map((toilet, index) => {
+            const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
+            return (
+              <li className="toilet-card" key={index}>
+                <div className="left-section">
+                  <FavoriteButton toiletId={toilet.id} placeName={toilet.place_name} />
                 </div>
-                <div className="toilet-rating">★★★★☆</div>
-              </div>
-              <div className="right-section">
-                <div className="toilet-user">aaa-</div>
-                <div className="toilet-comment">여기 화장실 그냥 그래요</div>
-              </div>
-            </li>
-          ))}
+
+                <div className="middle-section">
+                  <div className="toilet-name">
+                    <Link
+                      href={`/toilet/${toilet.id}`}
+                      className="toilet-name-link"
+                    >
+                      <strong>{toilet.place_name}</strong>
+                    </Link>
+                  </div>
+
+                  <div className="toilet-rating">
+                    {'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})
+                  </div>
+                </div>
+
+                <div className="right-section">
+                  <div className="toilet-user">
+                    {toilet.reviews?.[0]?.user ?? '익명'}
+                  </div>
+                  <div className="toilet-comment">
+                    {toilet.reviews?.[0]?.comment ?? '댓글 없음'}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

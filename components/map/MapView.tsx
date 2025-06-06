@@ -28,7 +28,7 @@ export default function MapView() {
             initMap(position.coords.latitude, position.coords.longitude);
           },
           () => {
-            initMap(37.5665, 126.9780); // 기본 서울시청 위치
+            initMap(37.5665, 126.9780); // 기본 위치: 서울시청
           }
         );
       });
@@ -46,36 +46,58 @@ export default function MapView() {
     searchToilets(lat, lng);
   };
 
-  const searchToilets = (lat: number, lng: number) => {
+  const searchToilets = async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
     ps.keywordSearch(
       '화장실',
-      (data, status) => {
+      async (data, status) => {
         if (status !== window.kakao.maps.services.Status.OK) return;
 
-        setToiletList(data);
-        let currentOverlay: any = null;
+        // 🔄 각 화장실에 대해 MongoDB에서 정보 보강
+        const enriched = await Promise.all(
+          data.map(async (place) => {
+            try {
+              const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
+              if (!res.ok) throw new Error();
+              const dbData = await res.json();
 
-        data.forEach((place) => {
+              return {
+                ...place,
+                overallRating: dbData.overallRating ?? 3,
+                reviews: dbData.reviews ?? [],
+              };
+            } catch (e) {
+              return {
+                ...place,
+                overallRating: 3,
+                reviews: [],
+              };
+            }
+          })
+        );
+
+        setToiletList(enriched);
+
+        // 🔽 오버레이 생성
+        let currentOverlay: any = null;
+        enriched.forEach((place) => {
           const marker = new window.kakao.maps.Marker({
             map: mapRef.current,
             position: new window.kakao.maps.LatLng(place.y, place.x),
           });
 
           const content = `
-  <div class="toilet-overlay-box">
-    <div class="header">
-      <span class="title">${place.place_name} - 200M</span>
-      <span class="close-btn" id="close-${place.id}">X</span>
-    </div>
-    <div class="rating"><span class="filled">★★★★</span><span class="empty">☆</span></div>
-    <div class="tags">
-      <span>#성별 분리</span> <span>#장애인 화장실O</span> <span>#비데있음</span> <span>#쾌적함</span>
-    </div>
-    <a href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}" class="detail-link">자세히 보기</a>
-  </div>
-`;
-
+            <div class="toilet-overlay-box">
+              <div class="header">
+                <span class="title">${place.place_name}</span>
+                <span class="close-btn" id="close-${place.id}">X</span>
+              </div>
+              <div class="rating">
+                ${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})
+              </div>
+              <a href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}" class="detail-link">자세히 보기</a>
+            </div>
+          `;
 
           const overlay = new window.kakao.maps.CustomOverlay({
             content,
