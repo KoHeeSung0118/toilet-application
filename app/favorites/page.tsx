@@ -37,9 +37,13 @@ export default function FavoritePage() {
                 </div>
 
                 <div className="toilet-rating">
-                  {'★'.repeat(Math.round(toilet.overallRating ?? 3)).padEnd(5, '☆')} (
-                  {(toilet.overallRating ?? 3).toFixed(1)})
+                  <span className="star-colored">
+                    {'★'.repeat(Math.round(toilet.overallRating ?? 3)).padEnd(5, '☆')}
+                  </span>
+                  {' '}
+                  ({(toilet.overallRating ?? 3).toFixed(1)})
                 </div>
+
               </div>
 
               <div className="right-section">

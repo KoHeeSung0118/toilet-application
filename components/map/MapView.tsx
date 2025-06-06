@@ -1,3 +1,5 @@
+// ✅ 파일: app/components/MapView.tsx
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -59,12 +61,14 @@ export default function MapView() {
                 ...place,
                 overallRating: dbData.overallRating ?? 3,
                 reviews: dbData.reviews ?? [],
+                keywords: dbData.keywords ?? [],
               };
             } catch {
               return {
                 ...place,
                 overallRating: 3,
                 reviews: [],
+                keywords: [],
               };
             }
           })
@@ -85,9 +89,14 @@ export default function MapView() {
                 <span class="title">${place.place_name}</span>
                 <span class="close-btn" id="close-${place.id}">X</span>
               </div>
-              <div class="rating">
+              <div class="rating" style="color: #f5a623; font-weight: bold;">
                 ${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})
               </div>
+              ${
+                place.keywords.length
+                  ? `<div class="keywords">${place.keywords.map((kw: string) => `<span class="tag">#${kw}</span>`).join(' ')}</div>`
+                  : ''
+              }
               <a href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}" class="detail-link">자세히 보기</a>
             </div>
           `;

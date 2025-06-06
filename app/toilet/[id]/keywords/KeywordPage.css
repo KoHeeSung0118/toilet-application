@@ -1,4 +1,3 @@
-/* ✅ KeywordPage.css */
 .page-container {
   max-width: 500px;
   margin: 0 auto;
@@ -36,8 +35,9 @@
 }
 
 .keyword.selected {
-  background-color: #1D4E89;
-  color: white;
+  background-color: #d0ebff;
+  color: #1D4E89;
+  font-weight: bold;
 }
 
 .submit-btn,

@@ -112,3 +112,18 @@
   border-radius: 4px;
   cursor: pointer;
 }
+.keywords {
+  margin: 4px 0 6px;
+  font-size: 13px;
+  color: #1d4e89;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag {
+  background-color: #e8f0fe;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+}

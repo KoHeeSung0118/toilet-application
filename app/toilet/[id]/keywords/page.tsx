@@ -1,7 +1,7 @@
 // ✅ app/toilet/[id]/keywords/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import './KeywordPage.css';
 
@@ -23,6 +23,18 @@ export default function KeywordPage() {
   const params = useParams();
   const id = params?.id as string;
   const placeName = searchParams.get('place_name') ?? '이름 미정';
+
+  useEffect(() => {
+    const fetchKeywords = async () => {
+      const res = await fetch(`/api/toilet/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.keywords)) {
+        setSelected(data.keywords);
+      }
+    };
+    fetchKeywords();
+  }, [id]);
 
   const toggleKeyword = (word: string) => {
     setSelected((prev) =>
