@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import './DeleteCommentButton.css'
 
 interface Props {
   toiletId: string;

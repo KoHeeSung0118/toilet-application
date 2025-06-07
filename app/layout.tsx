@@ -29,9 +29,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ToiletProvider>
-          {children}
+          <div style={{ paddingBottom: '72px' }}> {/* 탭바 높이에 맞게 조절 */}
+            {children}
+          </div>
         </ToiletProvider>
-        <TabBar></TabBar>
+        <TabBar />
+
       </body>
     </html>
   );
