@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { toiletId, toilet } = req.body;
   const token = req.cookies.token;
-  console.log('💾 저장 시도 중 toilet:', toilet);
+  // console.log('💾 저장 시도 중 toilet:', toilet);
 
   if (!token) {
     return res.status(401).json({ message: '로그인이 필요합니다.' });

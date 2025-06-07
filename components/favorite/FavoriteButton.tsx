@@ -45,7 +45,8 @@ export default function FavoriteButton({ toiletId, placeName }: FavoriteButtonPr
         const result = await res.json();
         setIsFavorite(result.isFavorite);
       } else {
-        console.error('즐겨찾기 처리 실패');
+        const error = await res.text();
+        console.error('❌ 즐겨찾기 처리 실패:', error);
       }
     } catch (e) {
       console.error('서버 오류:', e);

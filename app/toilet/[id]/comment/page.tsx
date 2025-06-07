@@ -1,37 +1,50 @@
-// ✅ app/toilet/[id]/comment/page.tsx
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import './CommentPage.css';
 
-export default function CommentPage({ params }: { params: { id: string } }) {
+export default function CommentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+
   const placeName = searchParams.get('place_name') ?? '이름 미정';
+  const toiletId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
+    console.log('🚀 handleSubmit 실행됨');
+    console.log('📝 comment:', comment);
+    console.log('🆔 toiletId:', toiletId);
+
     if (!comment.trim()) {
       alert('댓글을 입력하세요.');
       return;
     }
 
+    if (!toiletId) {
+      alert('화장실 ID가 없습니다.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(`/api/toilet/${params.id}/comment`, {
+      const res = await fetch(`/api/toilet/${toiletId}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: '익명', comment })
+        credentials: 'include',
+        body: JSON.stringify({ comment: comment.trim() })
       });
 
       if (res.ok) {
         alert('댓글이 등록되었습니다.');
         router.back();
       } else {
-        alert('댓글 등록에 실패했습니다.');
+        const err = await res.json();
+        alert(`댓글 등록 실패: ${err.message}`);
       }
     } catch (err) {
       console.error('댓글 등록 오류:', err);
