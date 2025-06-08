@@ -5,10 +5,11 @@ import '../../app/list/ToiletList.css';
 
 interface FavoriteButtonProps {
   toiletId: string;
-  placeName: string; // 반드시 제공돼야 함
+  placeName: string;
+  onUnfavorite?: () => void; // ✅ 콜백 추가
 }
 
-export default function FavoriteButton({ toiletId, placeName }: FavoriteButtonProps) {
+export default function FavoriteButton({ toiletId, placeName, onUnfavorite }: FavoriteButtonProps) {
   const [isFavorite, setIsFavorite] = useState(false);
 
   // 즐겨찾기 상태 불러오기
@@ -44,6 +45,11 @@ export default function FavoriteButton({ toiletId, placeName }: FavoriteButtonPr
       if (res.ok) {
         const result = await res.json();
         setIsFavorite(result.isFavorite);
+
+        // ✅ 해제된 경우 onUnfavorite 콜백 호출
+        if (!result.isFavorite && onUnfavorite) {
+          onUnfavorite();
+        }
       } else {
         const error = await res.text();
         console.error('❌ 즐겨찾기 처리 실패:', error);

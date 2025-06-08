@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import FavoriteButton from '@/components/favorite/FavoriteButton';
 import Link from 'next/link';
 import '../list/ToiletList.css';
+import './FavoritePage.css'; // ✅ 새 CSS 추가
 
 export default function FavoritePage() {
-  const [favorites, setFavorites] = useState<any[]>([]); // ✅ any[] 타입 지정
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const [removingIds, setRemovingIds] = useState<string[]>([]); // ✅ 제거 중인 항목 추적
 
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
@@ -16,7 +18,7 @@ export default function FavoritePage() {
           setFavorites(data);
         } else {
           console.error('❌ favorites가 배열이 아닙니다:', data);
-          setFavorites([]); // 안전 처리
+          setFavorites([]);
         }
       })
       .catch((err) => {
@@ -24,16 +26,31 @@ export default function FavoritePage() {
       });
   }, []);
 
+  const handleUnfavorite = (toiletId: string) => {
+    setRemovingIds(prev => [...prev, toiletId]);
+    setTimeout(() => {
+      setFavorites(prev => prev.filter(t => t.id !== toiletId));
+      setRemovingIds(prev => prev.filter(id => id !== toiletId));
+    }, 400); // ✅ 애니메이션 후 제거
+  };
+
   return (
     <div className="list-page">
       {favorites.length === 0 ? (
         <p>즐겨찾기한 화장실이 없습니다.</p>
       ) : (
         <ul className="toilet-list">
-          {favorites.map((toilet, index) => (
-            <li className="toilet-card" key={index}>
+          {favorites.map((toilet) => (
+            <li
+              className={`toilet-card ${removingIds.includes(toilet.id) ? 'fade-out' : ''}`}
+              key={toilet.id}
+            >
               <div className="left-section">
-                <FavoriteButton toiletId={toilet.id} placeName={toilet.place_name} />
+                <FavoriteButton
+                  toiletId={toilet.id}
+                  placeName={toilet.place_name}
+                  onUnfavorite={() => handleUnfavorite(toilet.id)} // ✅ 콜백 전달
+                />
               </div>
               <div className="middle-section">
                 <div className="toilet-name">
