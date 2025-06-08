@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToiletProvider } from '@/context/ToiletContext';
 import TabBar from "@/components/tabbar/TabBar";
+import Header from '@/components/common/Header';
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -29,12 +31,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ToiletProvider>
-          <div style={{ paddingBottom: '72px' }}> {/* 탭바 높이에 맞게 조절 */}
+          <Header />
+          <div style={{  paddingBottom: '4.5rem' }}>
             {children}
           </div>
         </ToiletProvider>
         <TabBar />
-
       </body>
     </html>
   );
