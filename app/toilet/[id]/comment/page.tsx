@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import './CommentPage.css';
 
@@ -14,12 +14,24 @@ export default function CommentPage() {
 
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const [avgRating, setAvgRating] = useState<number | null>(null); // 평균 별점 상태
+
+  // 평균 별점 불러오기
+  useEffect(() => {
+    const fetchRating = async () => {
+      if (!toiletId) return;
+      try {
+        const res = await fetch(`/api/toilet/${toiletId}/rating`);
+        const data = await res.json();
+        setAvgRating(data.avgRating); // 예: 3.4
+      } catch (e) {
+        console.error('평균 별점 불러오기 실패:', e);
+      }
+    };
+    fetchRating();
+  }, [toiletId]);
 
   const handleSubmit = async () => {
-    console.log('🚀 handleSubmit 실행됨');
-    console.log('📝 comment:', comment);
-    console.log('🆔 toiletId:', toiletId);
-
     if (!comment.trim()) {
       alert('댓글을 입력하세요.');
       return;
@@ -58,9 +70,18 @@ export default function CommentPage() {
     <div className="page-container">
       <h2 className="title">{placeName}</h2>
 
+      {/* 별점 렌더링 */}
       <div className="star-row">
         {[...Array(5)].map((_, i) => (
-          <span key={i} style={{ color: i < 3 ? '#F5A623' : '#DDD', fontSize: '24px' }}>★</span>
+          <span
+            key={i}
+            style={{
+              color: i < Math.round(avgRating ?? 3) ? '#F5A623' : '#DDD',
+              fontSize: '24px',
+            }}
+          >
+            ★
+          </span>
         ))}
       </div>
 
