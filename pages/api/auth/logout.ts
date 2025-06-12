@@ -1,7 +1,16 @@
+// /pages/api/logout.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { serialize } from 'cookie';
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  // 쿠키에서 token 제거
-  res.setHeader('Set-Cookie', 'token=; Path=/; HttpOnly; Max-Age=0; SameSite=Strict');
-  res.status(200).json({ message: '로그아웃 완료' });
+  const expiredCookie = serialize('token', '', {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: false, // 로컬 환경에서는 false
+    maxAge: 0, // 즉시 만료
+  });
+
+  res.setHeader('Set-Cookie', expiredCookie);
+  return res.status(200).json({ message: '로그아웃 완료' });
 }

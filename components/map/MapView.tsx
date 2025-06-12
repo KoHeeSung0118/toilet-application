@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
+import { useSearchParams } from 'next/navigation';
 
 declare global {
   interface Window {
@@ -24,12 +25,12 @@ const FILTERS = [
 export default function MapView() {
   const { setToiletList } = useToilet();
   const mapRef = useRef<any>(null);
-  const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<any[]>([]);
-  const [markers, setMarkers] = useState<any[]>([]); // ✅ 마커 상태 관리 추가
+  const [markers, setMarkers] = useState<any[]>([]);
+  const searchParams = useSearchParams();
+  const queryKeyword = searchParams.get('query');
 
-  // 1. 지도 로딩
   useEffect(() => {
     const script = document.createElement('script');
     script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services`;
@@ -39,14 +40,25 @@ export default function MapView() {
     script.onload = () => {
       window.kakao.maps.load(() => {
         navigator.geolocation.getCurrentPosition(
-          (position) => initMap(position.coords.latitude, position.coords.longitude),
-          () => initMap(37.5665, 126.9780)
+          (position) => {
+            initMap(position.coords.latitude, position.coords.longitude);
+            if (queryKeyword) handleQuerySearch(queryKeyword);
+          },
+          () => {
+            initMap(37.5665, 126.9780);
+            if (queryKeyword) handleQuerySearch(queryKeyword);
+          }
         );
       });
     };
   }, []);
 
-  // 2. 지도 초기화
+  useEffect(() => {
+    if (mapRef.current && queryKeyword) {
+      handleQuerySearch(queryKeyword);
+    }
+  }, [queryKeyword]);
+
   const initMap = (lat: number, lng: number) => {
     const container = document.getElementById('map');
     const map = new window.kakao.maps.Map(container, {
@@ -58,9 +70,20 @@ export default function MapView() {
     searchToilets(lat, lng);
   };
 
-  // 3. 마커 렌더링 함수
+  const handleQuerySearch = (keyword: string) => {
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    geocoder.addressSearch(keyword, (result, status) => {
+      if (status === window.kakao.maps.services.Status.OK) {
+        const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
+        mapRef.current.setCenter(coords);
+        searchToilets(result[0].y, result[0].x);
+      } else {
+        alert('검색 결과가 없습니다.');
+      }
+    });
+  };
+
   const renderMarkers = (toilets: any[]) => {
-    // 이전 마커 제거
     markers.forEach(marker => marker.setMap(null));
     setMarkers([]);
 
@@ -110,10 +133,9 @@ export default function MapView() {
       });
     });
 
-    setMarkers(newMarkers); // ✅ 마커 상태 업데이트
+    setMarkers(newMarkers);
   };
 
-  // 4. 화장실 검색
   const searchToilets = async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
     ps.keywordSearch(
@@ -155,48 +177,21 @@ export default function MapView() {
     );
   };
 
-  // 5. 장소 이름으로 검색
-  const handleSearch = () => {
-    const geocoder = new window.kakao.maps.services.Geocoder();
-    geocoder.addressSearch(searchKeyword, (result, status) => {
-      if (status === window.kakao.maps.services.Status.OK) {
-        const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
-        mapRef.current.setCenter(coords);
-        searchToilets(result[0].y, result[0].x);
-      } else {
-        alert('검색 결과가 없습니다.');
-      }
-    });
-  };
-
-  // 6. 필터 적용
   const filteredToilets = selectedFilters.length === 0
     ? allToilets
     : allToilets.filter((t) =>
         selectedFilters.every((kw) => t.keywords?.includes(kw))
       );
 
-  // 7. 필터 변경 시 마커 다시 그림
   useEffect(() => {
     if (mapRef.current) {
       renderMarkers(filteredToilets);
     }
   }, [selectedFilters]);
 
-  // 8. UI 렌더링
   return (
     <div className="map-wrapper">
       <div className="top-ui">
-        <div className="search-bar">
-          <input
-            type="text"
-            value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
-            placeholder="장소 또는 주소 검색"
-          />
-          <button onClick={handleSearch}>검색</button>
-        </div>
-
         <div className="keyword-filter">
           {FILTERS.map((filter) => (
             <button

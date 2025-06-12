@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import FavoriteButton from '@/components/favorite/FavoriteButton';
 import Link from 'next/link';
 import '../list/ToiletList.css';
-import './FavoritePage.css'; // ✅ 새 CSS 추가
+import './FavoritePage.css';
 
 export default function FavoritePage() {
   const [favorites, setFavorites] = useState<any[]>([]);
-  const [removingIds, setRemovingIds] = useState<string[]>([]); // ✅ 제거 중인 항목 추적
+  const [removingIds, setRemovingIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
@@ -31,7 +31,7 @@ export default function FavoritePage() {
     setTimeout(() => {
       setFavorites(prev => prev.filter(t => t.id !== toiletId));
       setRemovingIds(prev => prev.filter(id => id !== toiletId));
-    }, 400); // ✅ 애니메이션 후 제거
+    }, 400);
   };
 
   return (
@@ -49,13 +49,13 @@ export default function FavoritePage() {
                 <FavoriteButton
                   toiletId={toilet.id}
                   placeName={toilet.place_name}
-                  onUnfavorite={() => handleUnfavorite(toilet.id)} // ✅ 콜백 전달
+                  onUnfavorite={() => handleUnfavorite(toilet.id)}
                 />
               </div>
               <div className="middle-section">
                 <div className="toilet-name">
                   <Link
-                    href={`/toilet/${toilet.id}?place_name=${encodeURIComponent(toilet.place_name)}`}
+                    href={`/toilet/${toilet.id}?from=favorites&place_name=${encodeURIComponent(toilet.place_name)}`}
                     className="toilet-name-link"
                   >
                     <strong>{toilet.place_name}</strong>

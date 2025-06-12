@@ -25,7 +25,7 @@ export default function ToiletListPage() {
                 <div className="middle-section">
                   <div className="toilet-name">
                     <Link
-                      href={`/toilet/${toilet.id}`}
+                      href={`/toilet/${toilet.id}?from=list`}
                       className="toilet-name-link"
                     >
                       <strong>{toilet.place_name}</strong>

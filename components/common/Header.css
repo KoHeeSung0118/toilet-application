@@ -1,0 +1,58 @@
+/* components/common/Header.css */
+
+.header {
+  height: 60px;
+  background-color: white;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1rem;
+  position: relative;
+  z-index: 10;
+}
+
+.search-area {
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  width: 0;
+  transition: width 0.3s ease;
+  overflow: hidden;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  opacity: 0;
+}
+
+.search-input.open {
+  width: 200px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  opacity: 1;
+}
+
+.search-button {
+  margin-left: 8px;
+  padding: 4px 10px;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #f1f1f1;
+  cursor: pointer;
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-weight: bold;
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
