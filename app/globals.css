@@ -3,22 +3,7 @@ body{
     margin: 0;
 }
 
-.signup{
-  padding: 20px;
-}
-input {
-  width: 50%;
-  box-sizing: border-box;
-  padding: 10px;
-  display: block;
-  margin-bottom: 10px;
-}
-button {
-  padding: 10px 15px;
-  background: lightgray;
-  border: none;
-  border-radius: 5px;
-}
+
 
 .navbar {
   background-color: red;
@@ -38,7 +23,7 @@ button {
 }
 
 /* *{
-  border: 1px solid black;
+  border: 1px solid rgb(172, 9, 9);
 } */
 
 html, body {

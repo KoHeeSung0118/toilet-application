@@ -1,58 +1,70 @@
-/* components/common/Header.css */
-
 .header {
-  height: 60px;
-  background-color: white;
-  border-bottom: 1px solid #ccc;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 1rem;
   position: relative;
+  height: 3.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  background: white;
+  border-bottom: 1px solid #ccc;
   z-index: 10;
 }
 
-.search-area {
+.left-area {
   display: flex;
   align-items: center;
-}
-
-.search-input {
-  width: 0;
-  transition: width 0.3s ease;
-  overflow: hidden;
-  margin-left: 8px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  opacity: 0;
-}
-
-.search-input.open {
-  width: 200px;
-  padding: 4px 8px;
-  border: 1px solid #ccc;
-  opacity: 1;
-}
-
-.search-button {
-  margin-left: 8px;
-  padding: 4px 10px;
-  font-size: 0.9rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background-color: #f1f1f1;
-  cursor: pointer;
 }
 
 .logout-button {
+  position: relative;
+  z-index: 1;
+  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
+  padding: 0.375rem 0.75rem;
   font-weight: bold;
-  background: transparent;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 0.25rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.search-float {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  background: white;
+  box-shadow: 0 0 8px rgba(0,0,0,0.08);
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  z-index: 100;   /* 로그아웃 버튼 위 */
+  animation: fadeIn 0.25s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-50%) scale(0.9);}
+  to   { opacity: 1; transform: translateY(-50%) scale(1);}
+}
+
+.search-input {
+  width: 14rem;
+  font-size: 1rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  outline: none;
+}
+
+.search-button {
+  white-space: nowrap;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  background-color: #f1f1f1;
   cursor: pointer;
 }
