@@ -7,13 +7,19 @@
   padding: 0 1rem;
   background: white;
   border-bottom: 1px solid #ccc;
+  margin-bottom: 1rem;
+
   z-index: 10;
 }
 
-.left-area {
+.ani {
+  justify-content: center !important;
+}
+
+/* .left-area {
   display: flex;
   align-items: center;
-}
+} */
 
 .logout-button {
   position: relative;
@@ -31,18 +37,21 @@
 
 .search-float {
   position: absolute;
-  top: 50%;
-  right: 1rem;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100%;
+  z-index: 100;
   background: white;
   box-shadow: 0 0 8px rgba(0,0,0,0.08);
-  border-radius: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  z-index: 100;   /* 로그아웃 버튼 위 */
+  border-radius: 0;         /* 헤더와 동일하게 */
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   animation: fadeIn 0.25s;
 }
+
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-50%) scale(0.9);}
@@ -50,7 +59,7 @@
 }
 
 .search-input {
-  width: 14rem;
+  flex: 1;
   font-size: 1rem;
   padding: 0.25rem 0.5rem;
   border: 1px solid #ccc;
@@ -67,4 +76,10 @@
   border-radius: 0.25rem;
   background-color: #f1f1f1;
   cursor: pointer;
+}
+
+.search-area{
+  display: flex;
+  align-items: center;
+  width: 100%;
 }

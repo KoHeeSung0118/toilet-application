@@ -69,7 +69,8 @@ export default function Header() {
         <div />
       )}
 
-      {!hideLogout && (
+      {/* 검색창이 열려있을 때는 로그아웃 버튼을 숨김 */}
+      {!hideLogout && !searchOpen && (
         <button className="logout-button" onClick={handleLogout}>
           <LogOut size={16} />
         </button>

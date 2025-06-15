@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Header from '@/components/common/Header'
 import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
 import { useSearchParams } from 'next/navigation';
@@ -191,6 +192,7 @@ export default function MapView() {
 
   return (
     <div className="map-wrapper">
+      <Header /> 
       <div className="top-ui">
         <div className="keyword-filter">
           {FILTERS.map((filter) => (

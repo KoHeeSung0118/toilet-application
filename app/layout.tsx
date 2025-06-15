@@ -30,8 +30,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* <Header /> */}
         <ToiletProvider>
-          <Header />
+          {/* <Header /> */}
           <div style={{  paddingBottom: '4.5rem' }}>
             {children}
           </div>
