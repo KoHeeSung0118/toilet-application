@@ -54,7 +54,7 @@ export default async function ToiletDetailPage({
     <div className="detail-page">
       <ClientOnlyBackButton />
 
-      <div className="header">
+      <div className="detail-header">
         <div className="favorite-wrapper">
           <FavoriteButton toiletId={params.id} placeName={toilet.place_name} />
         </div>

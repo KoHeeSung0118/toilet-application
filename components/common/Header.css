@@ -1,85 +1,101 @@
+/* components/common/Header.css */
+
+:root {
+  /* 기준 폰트 사이즈 16px 가정 */
+  --header-height: 3.75rem;       /* 60px */
+  --padding-horizontal: 1rem;     /* 16px */
+  --input-padding: 0.25rem 0.5rem;/* 4px 8px */
+  --button-padding: 0.25rem 0.625rem; /* 4px 10px */
+  --logout-padding: 0.375rem 0.75rem;  /* 6px 12px */
+  --border-radius: 0.25rem;       /* 4px */
+  --shadow-color: rgba(0, 0, 0, 0.08);
+}
+
 .header {
-  position: relative;
-  height: 3.75rem;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 0 1rem;
-  background: white;
+  align-items: center;
+  height: var(--header-height);
+  padding: 0 var(--padding-horizontal);
+  background-color: #fff;
   border-bottom: 1px solid #ccc;
-  margin-bottom: 1rem;
-
-  z-index: 10;
-}
-
-.ani {
-  justify-content: center !important;
-}
-
-/* .left-area {
-  display: flex;
-  align-items: center;
-} */
-
-.logout-button {
   position: relative;
-  z-index: 1;
-  margin-left: auto;
+  z-index: 10;
+  margin-bottom: 0.5rem;
+}
+
+/* 검색 영역 */
+.search-area {
   display: flex;
   align-items: center;
-  padding: 0.375rem 0.75rem;
-  font-weight: bold;
-  border: 1px solid #ccc;
-  border-radius: 0.25rem;
-  background: transparent;
-  cursor: pointer;
+  flex: 1;                      /* 남은 공간 차지 */
 }
 
-.search-float {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 100%;
-  z-index: 100;
-  background: white;
-  box-shadow: 0 0 8px rgba(0,0,0,0.08);
-  border-radius: 0;         /* 헤더와 동일하게 */
-  padding: 0 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.25s;
-}
-
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-50%) scale(0.9);}
-  to   { opacity: 1; transform: translateY(-50%) scale(1);}
-}
-
+/* 검색 인풋 (hidden → open) */
 .search-input {
-  flex: 1;
-  font-size: 1rem;
-  padding: 0.25rem 0.5rem;
+  flex: 0;                      /* 기본에선 늘어나지 않음 */
+  width: 0;
+  overflow: hidden;
+  padding: 0;
   border: 1px solid #ccc;
-  border-radius: 0.25rem;
-  outline: none;
+  border-radius: var(--border-radius);
+  transition: width 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
 }
 
+.search-input.open {
+  flex: 1;                      /* 남은 공간만큼 늘어남 */
+  padding: var(--input-padding);
+  opacity: 1;
+}
+
+/* 검색 버튼 */
 .search-button {
-  white-space: nowrap;
-  margin-left: 0.5rem;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.9rem;
+  margin-left: 0.5rem;          /* 8px */
+  padding: var(--button-padding);
+  font-size: 0.9rem;            /* 14.4px */
   border: 1px solid #ccc;
-  border-radius: 0.25rem;
+  border-radius: var(--border-radius);
   background-color: #f1f1f1;
   cursor: pointer;
 }
 
-.search-area{
+/* 로그아웃 버튼 */
+.logout-button {
   display: flex;
   align-items: center;
-  width: 100%;
+  gap: 0.25rem;                 /* 4px */
+  padding: var(--logout-padding);
+  font-weight: bold;
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+/* 검색 플로팅 모드 (선택 기능) */
+.search-float {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: #fff;
+  box-shadow: 0 0 0.5rem var(--shadow-color); /* 8px */
+  padding: 0 var(--padding-horizontal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
 }

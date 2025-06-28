@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+// import './styles/DetailPage.css';
 import { ToiletProvider } from '@/context/ToiletContext';
 import TabBar from "@/components/tabbar/TabBar";
-import Header from '@/components/common/Header';
+// import Header from '@/components/common/Header';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,9 +31,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* <Header /> */}
+ 
         <ToiletProvider>
-          {/* <Header /> */}
           <div style={{  paddingBottom: '4.5rem' }}>
             {children}
           </div>

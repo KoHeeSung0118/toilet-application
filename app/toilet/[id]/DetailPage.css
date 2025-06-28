@@ -10,7 +10,7 @@
 }
 
 /* 상단 헤더 */
-.header {
+.detail-header {
   position: relative;
   background-color: #e7f3fa;
   padding: 20px;
@@ -20,7 +20,7 @@
   text-align: center; /* 세로 중앙 정렬 */
 }
 
-.header h2 {
+.detail-header h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 600;

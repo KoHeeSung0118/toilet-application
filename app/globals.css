@@ -1,9 +1,28 @@
 /* @import "tailwindcss"; */
+/* app/globals.css 에 추가 */
+@import "./styles/DetailPage.css";
+
+
 body{
     margin: 0;
 }
 
-
+.signup{
+  padding: 20px;
+}
+input {
+  width: 50%;
+  box-sizing: border-box;
+  padding: 10px;
+  display: block;
+  margin-bottom: 10px;
+}
+button {
+  padding: 10px 15px;
+  background: lightgray;
+  border: none;
+  border-radius: 5px;
+}
 
 .navbar {
   background-color: red;
@@ -22,12 +41,13 @@ body{
   padding-bottom: 72px; /* 탭바 높이 */
 }
 
-/* *{
-  border: 1px solid rgb(172, 9, 9);
-} */
+*{
+  border: 1px solid red;
+}
 
 html, body {
   height: 100%; /* ✅ 이거 꼭 필요해! */
   margin: 0;
   padding: 0;
 }
+
