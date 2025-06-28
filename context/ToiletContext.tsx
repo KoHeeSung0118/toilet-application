@@ -1,14 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-// 타입 명확화: Toilet 구조 정의
+// ✅ Toilet 타입 정의
 export interface Toilet {
   id: string;
   place_name: string;
   overallRating?: number;
   reviews?: { user: string; comment: string }[];
-  // 필요한 다른 필드들도 여기에 추가 가능
+  keywords?: string[]; // 👉 필요 시 추가
 }
 
 interface ToiletContextType {
@@ -18,9 +18,31 @@ interface ToiletContextType {
 
 const ToiletContext = createContext<ToiletContextType | null>(null);
 
-// Provider 컴포넌트
+// ✅ Provider 컴포넌트
 export function ToiletProvider({ children }: { children: React.ReactNode }) {
   const [toiletList, setToiletList] = useState<Toilet[]>([]);
+
+  // 💾 앱 시작 시 localStorage에서 복원
+  useEffect(() => {
+    const saved = localStorage.getItem('toiletList');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setToiletList(parsed);
+        }
+      } catch (e) {
+        console.error('❌ localStorage에서 toiletList 복원 실패:', e);
+      }
+    }
+  }, []);
+
+  // 💾 toiletList가 바뀔 때 localStorage에 저장
+  useEffect(() => {
+    if (toiletList.length > 0) {
+      localStorage.setItem('toiletList', JSON.stringify(toiletList));
+    }
+  }, [toiletList]);
 
   return (
     <ToiletContext.Provider value={{ toiletList, setToiletList }}>
@@ -29,7 +51,7 @@ export function ToiletProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// 커스텀 훅
+// ✅ 커스텀 훅
 export function useToilet() {
   const context = useContext(ToiletContext);
   if (!context) {

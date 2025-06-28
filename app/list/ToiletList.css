@@ -53,6 +53,7 @@
 /* ToiletList.css */
 
 .favorite-icon {
+  border: none;
   background-color: transparent; /* 👉 버튼 배경 없애기 */
   color: #ccc; /* 기본 회색 */
   transition: color 0.3s ease;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Header from '@/components/common/Header'
+import Header from '@/components/common/Header';
 import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
 import { useSearchParams } from 'next/navigation';
@@ -20,7 +20,7 @@ const FILTERS = [
   '비데 설치 되어있음',
   '휴지 많음',
   '물 잘나옴',
-  '냄새 좋음'
+  '냄새 좋음',
 ];
 
 export default function MapView() {
@@ -85,7 +85,7 @@ export default function MapView() {
   };
 
   const renderMarkers = (toilets: any[]) => {
-    markers.forEach(marker => marker.setMap(null));
+    markers.forEach((marker) => marker.setMap(null));
     setMarkers([]);
 
     let currentOverlay: any = null;
@@ -107,9 +107,10 @@ export default function MapView() {
           <div class="rating" style="color: #f5a623; font-weight: bold;">
             ${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})
           </div>
-          ${place.keywords.length
-            ? `<div class="keywords">${place.keywords.map((kw: string) => `<span class="tag">#${kw}</span>`).join(' ')}</div>`
-            : ''
+          ${
+            place.keywords.length
+              ? `<div class="keywords">${place.keywords.map((kw: string) => `<span class="tag">#${kw}</span>`).join(' ')}</div>`
+              : ''
           }
           <a href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}" class="detail-link">자세히 보기</a>
         </div>
@@ -167,7 +168,8 @@ export default function MapView() {
           })
         );
 
-        setToiletList(enriched);
+        setToiletList(enriched); // ✅ context에 저장
+        localStorage.setItem('toiletList', JSON.stringify(enriched)); // ✅ localStorage에 저장
         setAllToilets(enriched);
         renderMarkers(enriched);
       },
@@ -192,7 +194,7 @@ export default function MapView() {
 
   return (
     <div className="map-wrapper">
-      <Header /> 
+      <Header />
       <div className="top-ui">
         <div className="keyword-filter">
           {FILTERS.map((filter) => (
@@ -212,7 +214,6 @@ export default function MapView() {
           ))}
         </div>
       </div>
-
       <div id="map" className="map-container" />
     </div>
   );
