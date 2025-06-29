@@ -9,10 +9,9 @@ export default function ClientOnlyBackButton() {
   const from = searchParams.get('from');
 
   const handleBack = () => {
-    if (from === 'list') {
-      router.push('/list');
-    } else if (from === 'favorites') {
-      router.push('/favorites');
+    if (from) {
+      const normalized = from.startsWith('/') ? from : `/${from}`;
+      router.push(normalized); // ✅ 항상 절대 경로로 이동
     } else {
       router.back();
     }

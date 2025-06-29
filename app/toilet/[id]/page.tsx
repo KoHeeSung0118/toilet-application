@@ -32,9 +32,10 @@ export default async function ToiletDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { place_name?: string };
+  searchParams: { place_name?: string; from?: string };
 }) {
   const placeName = searchParams.place_name ?? '';
+  const from = searchParams.from ?? '';
   const currentUserId = await getUserIdFromToken();
 
   const res = await fetch(
@@ -63,8 +64,12 @@ export default async function ToiletDetailPage({
           {'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})
         </div>
         <div className="btn-group">
-          <a href={`/toilet/${params.id}/keywords?place_name=${encodedName}`}>키워드 추가하기</a>
-          <a href={`/toilet/${params.id}/rate?place_name=${encodedName}`}>별점 추가하기</a>
+          <a href={`/toilet/${params.id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
+            키워드 추가하기
+          </a>
+          <a href={`/toilet/${params.id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
+            별점 추가하기
+          </a>
         </div>
       </div>
 
@@ -84,7 +89,6 @@ export default async function ToiletDetailPage({
         <p style={{ marginTop: '1rem' }}>등록된 키워드가 없습니다.</p>
       )}
 
-      {/* ✅ 댓글 출력 */}
       <div className="reviews">
         <h3>댓글</h3>
         {toilet.reviews?.length > 0 ? (
@@ -105,7 +109,7 @@ export default async function ToiletDetailPage({
         )}
       </div>
 
-      <a className="comment-btn" href={`/toilet/${params.id}/comment?place_name=${encodedName}`}>
+      <a className="comment-btn" href={`/toilet/${params.id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
         댓글 추가하기
       </a>
     </div>

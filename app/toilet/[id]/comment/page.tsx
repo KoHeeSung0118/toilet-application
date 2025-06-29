@@ -10,20 +10,20 @@ export default function CommentPage() {
   const params = useParams();
 
   const placeName = searchParams.get('place_name') ?? '이름 미정';
+  const from = searchParams.get('from') ?? '';
   const toiletId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [avgRating, setAvgRating] = useState<number | null>(null); // 평균 별점 상태
 
-  // 평균 별점 불러오기
   useEffect(() => {
     const fetchRating = async () => {
       if (!toiletId) return;
       try {
         const res = await fetch(`/api/toilet/${toiletId}/rating`);
         const data = await res.json();
-        setAvgRating(data.avgRating); // 예: 3.4
+        setAvgRating(data.avgRating);
       } catch (e) {
         console.error('평균 별점 불러오기 실패:', e);
       }
@@ -53,7 +53,12 @@ export default function CommentPage() {
 
       if (res.ok) {
         alert('댓글이 등록되었습니다.');
-        router.back();
+        router.replace(
+          `/toilet/${toiletId}?place_name=${encodeURIComponent(placeName)}${
+            from ? `&from=${from}` : ''
+          }`
+        );
+        router.refresh();
       } else {
         const err = await res.json();
         alert(`댓글 등록 실패: ${err.message}`);
@@ -70,7 +75,6 @@ export default function CommentPage() {
     <div className="page-container">
       <h2 className="title">{placeName}</h2>
 
-      {/* 별점 렌더링 */}
       <div className="star-row">
         {[...Array(5)].map((_, i) => (
           <span
@@ -95,7 +99,17 @@ export default function CommentPage() {
       <button className="submit-btn" onClick={handleSubmit} disabled={loading}>
         {loading ? '등록 중...' : '등록 하기'}
       </button>
-      <button className="back-btn" onClick={() => router.back()}>
+
+      <button
+        className="back-btn"
+        onClick={() =>
+          router.replace(
+            `/toilet/${toiletId}?place_name=${encodeURIComponent(placeName)}${
+              from ? `&from=${from}` : ''
+            }`
+          )
+        }
+      >
         뒤로 가기
       </button>
     </div>

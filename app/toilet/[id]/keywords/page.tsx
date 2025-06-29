@@ -1,4 +1,3 @@
-// ✅ app/toilet/[id]/keywords/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -23,6 +22,7 @@ export default function KeywordPage() {
   const params = useParams();
   const id = params?.id as string;
   const placeName = searchParams.get('place_name') ?? '이름 미정';
+  const from = searchParams.get('from') ?? '';
 
   useEffect(() => {
     const fetchKeywords = async () => {
@@ -50,7 +50,12 @@ export default function KeywordPage() {
     });
 
     if (res.ok) {
-      router.back();
+      router.replace(
+        `/toilet/${id}?place_name=${encodeURIComponent(placeName)}${
+          from ? `&from=${from}` : ''
+        }`
+      );
+      router.refresh();
     } else {
       alert('등록 실패');
     }
@@ -72,7 +77,18 @@ export default function KeywordPage() {
       </div>
 
       <button className="submit-btn" onClick={handleSubmit}>등록 하기</button>
-      <button className="back-btn" onClick={() => router.back()}>뒤로 가기</button>
+      <button
+        className="back-btn"
+        onClick={() =>
+          router.replace(
+            `/toilet/${id}?place_name=${encodeURIComponent(placeName)}${
+              from ? `&from=${from}` : ''
+            }`
+          )
+        }
+      >
+        뒤로 가기
+      </button>
     </div>
   );
 }

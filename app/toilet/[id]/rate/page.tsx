@@ -1,14 +1,15 @@
-// app/toilet/[id]/rate/page.tsx
 'use client';
 
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import './RatePage.css';
 
 export default function RatingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams();
   const id = params?.id as string;
+  const from = searchParams.get('from') ?? '';
 
   const [placeName, setPlaceName] = useState('불러오는 중...');
   const [overall, setOverall] = useState(0);
@@ -33,8 +34,12 @@ export default function RatingPage() {
     });
 
     if (res.ok) {
-      // 🔄 하드 리프레시 방식으로 detail 페이지 다시 로드
-      window.location.href = `/toilet/${id}?place_name=${encodeURIComponent(placeName)}`;
+      router.replace(
+        `/toilet/${id}?place_name=${encodeURIComponent(placeName)}${
+          from ? `&from=${from}` : ''
+        }`
+      );
+      router.refresh();
     } else {
       alert('별점 등록에 실패했습니다.');
     }
@@ -73,7 +78,18 @@ export default function RatingPage() {
       </div>
 
       <button className="submit-btn" onClick={handleSubmit}>등록 하기</button>
-      <button className="back-btn" onClick={() => router.back()}>뒤로 가기</button>
+      <button
+        className="back-btn"
+        onClick={() =>
+          router.replace(
+            `/toilet/${id}?place_name=${encodeURIComponent(placeName)}${
+              from ? `&from=${from}` : ''
+            }`
+          )
+        }
+      >
+        뒤로 가기
+      </button>
     </div>
   );
 }
