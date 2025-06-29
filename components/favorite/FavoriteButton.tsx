@@ -1,18 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Heart } from 'lucide-react';
 import '../../app/list/ToiletList.css';
 
 interface FavoriteButtonProps {
   toiletId: string;
   placeName: string;
-  onUnfavorite?: () => void; // ✅ 콜백 추가
+  onUnfavorite?: () => void;
 }
 
-export default function FavoriteButton({ toiletId, placeName, onUnfavorite }: FavoriteButtonProps) {
+export default function FavoriteButton({
+  toiletId,
+  placeName,
+  onUnfavorite,
+}: FavoriteButtonProps) {
   const [isFavorite, setIsFavorite] = useState(false);
 
-  // 즐겨찾기 상태 불러오기
   useEffect(() => {
     const fetchStatus = async () => {
       try {
@@ -29,7 +33,6 @@ export default function FavoriteButton({ toiletId, placeName, onUnfavorite }: Fa
     fetchStatus();
   }, [toiletId]);
 
-  // 즐겨찾기 토글
   const handleToggle = async () => {
     try {
       const res = await fetch('/api/favorite/toggle', {
@@ -45,11 +48,7 @@ export default function FavoriteButton({ toiletId, placeName, onUnfavorite }: Fa
       if (res.ok) {
         const result = await res.json();
         setIsFavorite(result.isFavorite);
-
-        // ✅ 해제된 경우 onUnfavorite 콜백 호출
-        if (!result.isFavorite && onUnfavorite) {
-          onUnfavorite();
-        }
+        if (!result.isFavorite && onUnfavorite) onUnfavorite();
       } else {
         const error = await res.text();
         console.error('❌ 즐겨찾기 처리 실패:', error);
@@ -61,11 +60,16 @@ export default function FavoriteButton({ toiletId, placeName, onUnfavorite }: Fa
 
   return (
     <button
-      className={`favorite-icon ${isFavorite ? 'active' : ''}`}
       onClick={handleToggle}
+      className="favorite-button"
       aria-label={isFavorite ? '즐겨찾기 취소' : '즐겨찾기 추가'}
     >
-      {isFavorite ? '★' : '☆'}
+      <Heart
+        className="heart-icon"
+        stroke={isFavorite ? '#4E3CDB' : '#4E3CDB'}
+        fill={isFavorite ? '#4E3CDB' : 'none'}
+        size={20}
+      />
     </button>
   );
 }

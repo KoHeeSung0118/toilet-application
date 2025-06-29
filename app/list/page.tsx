@@ -16,37 +16,25 @@ export default function ToiletListPage() {
         <ul className="toilet-list">
           {toiletList.map((toilet, index) => {
             const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
+            const comment = toilet.reviews?.[0]?.comment ?? '댓글 없음';
+
             return (
-              <li className="toilet-card" key={index}>
-                <div className="left-section">
-                  <FavoriteButton toiletId={toilet.id} placeName={toilet.place_name} />
-                </div>
-
-                <div className="middle-section">
-                  <div className="toilet-name">
-                    <Link
-                      href={`/toilet/${toilet.id}?from=list`}
-                      className="toilet-name-link"
-                    >
-                      <strong>{toilet.place_name}</strong>
-                    </Link>
-                  </div>
-
+              <li className="modern-toilet-card" key={index}>
+                <div className="card-left">
+                  <Link
+                    href={`/toilet/${toilet.id}?from=list`}
+                    className="toilet-name-link"
+                  >
+                    <div className="toilet-name">{toilet.place_name}</div>
+                  </Link>
                   <div className="toilet-rating">
-                    <span className="star-colored">
-                      {'★'.repeat(Math.round(rating)).padEnd(5, '☆')}
-                    </span>{' '}
-                    ({rating.toFixed(1)})
+                    <span className="star">★</span> {rating.toFixed(1)}
                   </div>
                 </div>
 
-                <div className="right-section">
-                  <div className="toilet-user">
-                    {toilet.reviews?.[0]?.user ?? '익명'}
-                  </div>
-                  <div className="toilet-comment">
-                    {toilet.reviews?.[0]?.comment ?? '댓글 없음'}
-                  </div>
+                <div className="card-right">
+                  <FavoriteButton toiletId={toilet.id} placeName={toilet.place_name} />
+                  <div className="toilet-comment">{comment}</div>
                 </div>
               </li>
             );

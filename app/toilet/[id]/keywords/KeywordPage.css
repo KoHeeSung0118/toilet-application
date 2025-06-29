@@ -1,7 +1,7 @@
 .page-container {
   max-width: 500px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
   font-family: 'Segoe UI', sans-serif;
   background-color: #fff;
   min-height: calc(100vh - 60px);
@@ -9,9 +9,9 @@
 
 .title {
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 20px;
-  color: #1D4E89;
+  color: #4E3CDB;
   text-align: center;
 }
 
@@ -20,42 +20,56 @@
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .keyword {
-  padding: 6px 14px;
-  border: 1px solid #1D4E89;
+  padding: 8px 16px;
+  border: 1.8px solid #4E3CDB;
   border-radius: 20px;
-  background-color: white;
-  color: #1D4E89;
-  cursor: pointer;
+  background-color: #fff;
+  color: #4E3CDB;
   font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .keyword.selected {
-  background-color: #d0ebff;
-  color: #1D4E89;
-  font-weight: bold;
+  background-color: #e9e7f8;
+  color: #4E3CDB;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px #867cd0 inset;
 }
 
 .submit-btn,
 .back-btn {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   font-size: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
-  margin-top: 10px;
+  margin-top: 12px;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
 }
 
+/* 등록하기 버튼 */
 .submit-btn {
-  background-color: #1D4E89;
+  background-color: #4E3CDB;
   color: white;
 }
 
+.submit-btn:hover {
+  background-color: #372bc4;
+}
+
+/* 뒤로가기 버튼 */
 .back-btn {
-  background-color: #E5E5E5;
-  color: black;
+  background-color: #e9e7f8;
+  color: #4E3CDB;
+}
+
+.back-btn:hover {
+  background-color: #d6d2f5;
 }

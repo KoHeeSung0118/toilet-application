@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Search, LogOut } from 'lucide-react';
-import './Header.css'; // ✅ CSS 파일 불러오기
+import './Header.css';
 
 export default function Header() {
   const router = useRouter();
@@ -46,6 +46,7 @@ export default function Header() {
           <button
             onClick={() => setSearchOpen((prev) => !prev)}
             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            aria-label="검색창 열기"
           >
             <Search size={20} />
           </button>
@@ -56,7 +57,7 @@ export default function Header() {
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="장소나 지역 검색"
-            className={`search-input ${searchOpen ? 'open' : ''}`}
+            className={`search-input ${searchOpen ? 'open' : 'closed'}`}
           />
 
           {searchOpen && (
@@ -69,7 +70,6 @@ export default function Header() {
         <div />
       )}
 
-      {/* 검색창이 열려있을 때는 로그아웃 버튼을 숨김 */}
       {!hideLogout && !searchOpen && (
         <button className="logout-button" onClick={handleLogout}>
           <LogOut size={16} />

@@ -29,6 +29,7 @@ export default function MapView() {
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<any[]>([]);
   const [markers, setMarkers] = useState<any[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
   const searchParams = useSearchParams();
   const queryKeyword = searchParams.get('query');
 
@@ -88,7 +89,7 @@ export default function MapView() {
     markers.forEach((marker) => marker.setMap(null));
     setMarkers([]);
 
-    let currentOverlay: any = null;
+    let currentInfoWindow: any = null;
     const newMarkers: any[] = [];
 
     toilets.forEach((place) => {
@@ -99,39 +100,28 @@ export default function MapView() {
       newMarkers.push(marker);
 
       const content = `
-        <div class="toilet-overlay-box">
-          <div class="header">
-            <span class="title">${place.place_name}</span>
-            <span class="close-btn" id="close-${place.id}">X</span>
-          </div>
-          <div class="rating" style="color: #f5a623; font-weight: bold;">
-            ${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})
-          </div>
+        <div class="info-window">
+          <div class="info-title">${place.place_name}</div>
+          <div class="info-rating">${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})</div>
           ${
             place.keywords.length
-              ? `<div class="keywords">${place.keywords.map((kw: string) => `<span class="tag">#${kw}</span>`).join(' ')}</div>`
+              ? `<div class="info-keywords">${place.keywords.map((kw: string) => `#${kw}`).join(' ')}</div>`
               : ''
           }
-          <a href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}" class="detail-link">자세히 보기</a>
+          <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}">자세히 보기</a>
         </div>
       `;
 
-      const overlay = new window.kakao.maps.CustomOverlay({
+      const infowindow = new window.kakao.maps.InfoWindow({
         content,
-        position: new window.kakao.maps.LatLng(place.y, place.x),
-        yAnchor: 1.5,
+        removable: true,
       });
 
       window.kakao.maps.event.addListener(marker, 'click', () => {
         mapRef.current.panTo(marker.getPosition());
-        if (currentOverlay) currentOverlay.setMap(null);
-        overlay.setMap(mapRef.current);
-        currentOverlay = overlay;
-
-        setTimeout(() => {
-          const closeBtn = document.getElementById(`close-${place.id}`);
-          if (closeBtn) closeBtn.onclick = () => overlay.setMap(null);
-        }, 0);
+        if (currentInfoWindow) currentInfoWindow.close();
+        infowindow.open(mapRef.current, marker);
+        currentInfoWindow = infowindow;
       });
     });
 
@@ -168,8 +158,8 @@ export default function MapView() {
           })
         );
 
-        setToiletList(enriched); // ✅ context에 저장
-        localStorage.setItem('toiletList', JSON.stringify(enriched)); // ✅ localStorage에 저장
+        setToiletList(enriched);
+        localStorage.setItem('toiletList', JSON.stringify(enriched));
         setAllToilets(enriched);
         renderMarkers(enriched);
       },
@@ -196,23 +186,32 @@ export default function MapView() {
     <div className="map-wrapper">
       <Header />
       <div className="top-ui">
-        <div className="keyword-filter">
-          {FILTERS.map((filter) => (
-            <button
-              key={filter}
-              className={`filter-btn ${selectedFilters.includes(filter) ? 'active' : ''}`}
-              onClick={() => {
-                setSelectedFilters((prev) =>
-                  prev.includes(filter)
-                    ? prev.filter((f) => f !== filter)
-                    : [...prev, filter]
-                );
-              }}
-            >
-              #{filter}
-            </button>
-          ))}
-        </div>
+        <button
+          className="toggle-filter-btn"
+          onClick={() => setShowFilters((prev) => !prev)}
+        >
+          {showFilters ? '키워드 숨기기' : '키워드 보기'}
+        </button>
+
+        {showFilters && (
+          <div className="keyword-filter">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter}
+                className={`filter-btn ${selectedFilters.includes(filter) ? 'active' : ''}`}
+                onClick={() => {
+                  setSelectedFilters((prev) =>
+                    prev.includes(filter)
+                      ? prev.filter((f) => f !== filter)
+                      : [...prev, filter]
+                  );
+                }}
+              >
+                #{filter}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div id="map" className="map-container" />
     </div>

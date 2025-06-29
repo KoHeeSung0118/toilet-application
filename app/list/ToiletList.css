@@ -1,88 +1,99 @@
-.toilet-card {
+.list-page {
   display: flex;
-  background-color: #E3F5FF; /* 배경색 */
-  padding: 1rem;
-  border-radius: 1rem;
-  margin-bottom: 1rem;
-  position: relative;
-  align-items: center;
-  gap: 1rem;
+  justify-content: center;
+  padding: 1.5rem;
 }
 
-.left-section .favorite-icon {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  font-size: 0.9rem;
-  color: #6AA0BD; /* 댓글색과 어울리게 */
-  cursor: pointer;
-}
-
-.middle-section {
-  flex-grow: 1;
-  padding-left: 1.5rem; /* 별 아이콘 공간 확보 */
-}
-
-.toilet-name {
-  font-size: 1.1rem;
-  font-weight: 1rem;
-}
-
-.toilet-rating {
-  font-size: 0.9rem;
-  color: #000;
-}
-
-.right-section {
-  text-align: right;
-  font-size: 0.8rem;
-  color: #6AA0BD; /* 댓글 색상 */
-}
 .toilet-list {
   list-style: none;
   padding: 0;
   margin: 0;
   width: 100%;
-  max-width: 400px; /* 카드 최대 너비 고정 (예쁜 중앙 정렬용) */
+  max-width: 420px;
 }
-.list-page {
+
+.modern-toilet-card {
   display: flex;
-  justify-content: center;
-  padding: 1rem;
-}
-/* ToiletList.css */
-
-.favorite-icon {
-  border: none;
-  background-color: transparent; /* 👉 버튼 배경 없애기 */
-  color: #ccc; /* 기본 회색 */
-  transition: color 0.3s ease;
-  font-size: 20px;
-  user-select: none;
-  cursor: pointer;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  border: 1px solid #161616;
+  border-radius: 1rem;
+  background-color: #fff;
+  /* box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease; */
 }
 
-.favorite-icon:hover {
-  color: #efdd3f; /* 진한 파랑색 hover 효과 */
+.modern-toilet-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* 활성화된 상태일 때 별 색상 */
-.favorite-icon.active {
-  color: #efdd3f;
+.card-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
+.toilet-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1d3557;
+}
 
 .toilet-name-link {
   text-decoration: none;
-  color: black;
-  cursor: pointer;
+  color: inherit;
 }
 
 .toilet-name-link:hover {
   text-decoration: underline;
 }
 
-.star-colored {
-  color: #f5a623;
-  font-weight: bold;
+.toilet-rating {
+  font-size: 0.9rem;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.star {
+  color: #4E3CDB;
+  font-size: 1rem;
+}
+
+/* 오른쪽 영역 */
+.card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 100%;
+  min-width: 120px;
+}
+.toilet-comment{
+  margin-top: 1rem;
+  font-size: 0.7rem
+}
+
+/* 즐겨찾기 버튼 */
+.favorite-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.heart-icon {
+  background: none;
+  width: 20px;
+  height: 20px;
+  transition: fill 0.2s ease, stroke 0.2s ease;
 }

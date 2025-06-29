@@ -40,40 +40,38 @@ export default function FavoritePage() {
         <p>즐겨찾기한 화장실이 없습니다.</p>
       ) : (
         <ul className="toilet-list">
-          {favorites.map((toilet) => (
-            <li
-              className={`toilet-card ${removingIds.includes(toilet.id) ? 'fade-out' : ''}`}
-              key={toilet.id}
-            >
-              <div className="left-section">
-                <FavoriteButton
-                  toiletId={toilet.id}
-                  placeName={toilet.place_name}
-                  onUnfavorite={() => handleUnfavorite(toilet.id)}
-                />
-              </div>
-              <div className="middle-section">
-                <div className="toilet-name">
+          {favorites.map((toilet) => {
+            const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
+            const comment = toilet.reviews?.[0]?.comment ?? '댓글 없음';
+
+            return (
+              <li
+                className={`modern-toilet-card ${removingIds.includes(toilet.id) ? 'fade-out' : ''}`}
+                key={toilet.id}
+              >
+                <div className="card-left">
                   <Link
                     href={`/toilet/${toilet.id}?from=favorites&place_name=${encodeURIComponent(toilet.place_name)}`}
                     className="toilet-name-link"
                   >
-                    <strong>{toilet.place_name}</strong>
+                    <div className="toilet-name">{toilet.place_name}</div>
                   </Link>
+                  <div className="toilet-rating">
+                    <span className="star">★</span> {rating.toFixed(1)}
+                  </div>
                 </div>
-                <div className="toilet-rating">
-                  <span className="star-colored">
-                    {'★'.repeat(Math.round(toilet.overallRating ?? 3)).padEnd(5, '☆')}
-                  </span>{' '}
-                  ({(toilet.overallRating ?? 3).toFixed(1)})
+
+                <div className="card-right">
+                  <FavoriteButton
+                    toiletId={toilet.id}
+                    placeName={toilet.place_name}
+                    onUnfavorite={() => handleUnfavorite(toilet.id)}
+                  />
+                  <div className="toilet-comment">{comment}</div>
                 </div>
-              </div>
-              <div className="right-section">
-                <div className="toilet-user">{toilet.reviews?.[0]?.user ?? '익명'}</div>
-                <div className="toilet-comment">{toilet.reviews?.[0]?.comment ?? '댓글 없음'}</div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

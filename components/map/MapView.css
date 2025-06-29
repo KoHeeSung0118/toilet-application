@@ -21,122 +21,110 @@
 }
 
 .filter-btn {
-  border: 1px solid #6AA0BD;
+  border: 1px solid #4E3CDB;
   background-color: white;
-  color: #6AA0BD;
+  color: #4E3CDB;
   padding: 0.3rem 0.7rem;
   border-radius: 1rem;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: 0.2s;
 }
 
 .filter-btn.active {
-  background-color: #D9EDF7;
+  background-color: #e9e7f8;
 }
-
 
 .map-container {
   flex: 1;
   border-radius: 1rem;
   overflow: hidden;
   height: 100%;
-  /* ✅ 꼭 추가! */
-  min-height: 400px;
-  /* ✅ 또는 최소 높이 보장 */
+  min-height: 25rem;
 }
 
-/* ✅ 오버레이 스타일 */
-.toilet-overlay-box {
-  background-color: white;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 0;
-  width: 260px;
-  font-family: sans-serif;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  font-size: 14px;
+/* ✅ InfoWindow 스타일 */
+.info-window {
+  padding: 10px;
+  min-width: 180px;
+  max-width: 220px; /* ✅ 너비 제한 추가 */
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 0.9rem;
+  color: #333;
+  box-sizing: border-box;
 }
 
-.toilet-overlay-box .header {
-  background-color: #E5E5E5;
-  border-radius: 10px 10px 0 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #6AA0BD;
+.info-title {
   font-weight: bold;
-  font-size: 15px;
+  font-size: 1rem;
+  margin-bottom: 4px;
+  color: #333;
+  word-break: keep-all; /* ✅ 단어 단위 줄바꿈 */
+  overflow-wrap: break-word;
 }
 
-.toilet-overlay-box .title {
-  flex: 1;
-}
-
-.toilet-overlay-box .close-btn {
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.toilet-overlay-box .rating {
-  padding: 8px 12px 0;
-  font-size: 16px;
+.info-rating {
   color: #f5a623;
+  font-size: 0.85rem;
+}
+
+.info-keywords {
+  margin-top: 5px;
+  font-size: 0.75rem;
+  color: #4E3CDB;
+}
+
+.info-link {
+  display: block;              /* ✅ block으로 바꾸기 */
+  width: 100%;                 /* ✅ 부모 너비 다 쓰기 */
+  text-align: center;
+  margin-top: 8px;
+  padding: 0.4rem 0;
   font-weight: bold;
-}
-
-.toilet-overlay-box .tags {
-  padding: 8px 12px 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.toilet-overlay-box .tags span {
-  font-size: 13px;
-  color: #6AA0BD;
-}
-
-.detail-link {
-  margin: 8px;
+  color: #4E3CDB;
+  background-color: #e9e7f8;
+  border-radius: 0.4rem;
   text-decoration: none;
-  font-size: 13px;
-  color: #6AA0BD;
+  font-size: 0.85rem;
+  transition: background-color 0.2s ease;
 }
 
-/* ✅ 키워드 태그 (상세) */
-.keywords {
-  margin: 4px 0 6px;
-  font-size: 13px;
-  color: #1d4e89;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.tag {
-  background-color: #e8f0fe;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 12px;
+.info-link:hover {
+  background-color: #d4d0f0;
 }
 
 
+/* ✅ 필터 보기 토글 버튼 */
+.toggle-filter-btn {
+  background-color: #4E3CDB;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
 
+.toggle-filter-btn:hover {
+  background-color: #6b63b6;
+}
+
+/* ✅ 검색창 애니메이션 (사용 중이면 유지) */
 .search-input {
   width: 0;
   opacity: 0;
   padding: 0;
   border: none;
   transition: all 0.3s ease;
-  margin-left: 8px;
-  border-radius: 4px;
+  margin-left: 0.5rem;
+  border-radius: 0.25rem;
 }
 
 .search-input.open {
-  width: 200px;
+  width: 12.5rem;
   opacity: 1;
-  padding: 4px 8px;
+  padding: 0.25rem 0.5rem;
   border: 1px solid #ccc;
 }
 

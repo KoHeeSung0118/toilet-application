@@ -1,8 +1,7 @@
-/* ✅ CommentPage.css */
 .page-container {
   max-width: 500px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
   font-family: 'Segoe UI', sans-serif;
   background-color: #fff;
   min-height: calc(100vh - 60px);
@@ -11,7 +10,7 @@
 .title {
   font-size: 24px;
   font-weight: bold;
-  color: #1D4E89;
+  color: #4E3CDB;
   text-align: center;
   margin-bottom: 20px;
 }
@@ -19,35 +18,55 @@
 .star-row {
   text-align: center;
   margin-bottom: 20px;
+  font-size: 24px;
+  color: #F5A623;
 }
 
 .comment-box {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   height: 120px;
   font-size: 16px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+  border-radius: 10px;
+  border: 1px solid #ddd;
   resize: none;
   box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.comment-box:focus {
+  border-color: #867cd0;
 }
 
 .submit-btn,
 .back-btn {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   font-size: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
-  margin-top: 10px;
+  margin-top: 12px;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
 }
 
+/* 등록 버튼 */
 .submit-btn {
-  background-color: #1D4E89;
+  background-color: #4E3CDB;
   color: white;
 }
 
+.submit-btn:hover {
+  background-color: #372bc4;
+}
+
+/* 뒤로 가기 버튼 */
 .back-btn {
-  background-color: #E5E5E5;
-  color: black;
+  background-color: #e9e7f8;
+  color: #4E3CDB;
+}
+
+.back-btn:hover {
+  background-color: #d8d3f1;
 }

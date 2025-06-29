@@ -1,8 +1,7 @@
-/* ✅ RatePage.css */
 .page-container {
   max-width: 500px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
   font-family: 'Segoe UI', sans-serif;
   background-color: #fff;
   min-height: calc(100vh - 60px);
@@ -10,9 +9,9 @@
 
 .title {
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 20px;
-  color: #1D4E89;
+  color: #4E3CDB;
   text-align: center;
 }
 
@@ -20,31 +19,53 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   font-size: 16px;
+  font-weight: 600;
+  color: #333;
 }
 
 .star-row {
   display: flex;
-  gap: 4px;
+  gap: 6px;
+}
+
+.star-row span {
+  transition: transform 0.1s ease;
+}
+
+.star-row span:hover {
+  transform: scale(1.2);
 }
 
 .submit-btn,
 .back-btn {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   font-size: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
-  margin-top: 10px;
+  margin-top: 12px;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
 }
 
+/* 등록 버튼 */
 .submit-btn {
-  background-color: #1D4E89;
+  background-color: #4E3CDB;
   color: white;
 }
 
+.submit-btn:hover {
+  background-color: #372bc4;
+}
+
+/* 뒤로 가기 버튼 */
 .back-btn {
-  background-color: #E5E5E5;
-  color: black;
+  background-color: #e9e7f8;
+  color: #4E3CDB;
+}
+
+.back-btn:hover {
+  background-color: #d6d2f5;
 }
