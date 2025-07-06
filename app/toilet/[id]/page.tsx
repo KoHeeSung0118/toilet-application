@@ -13,6 +13,7 @@ interface Toilet {
     userId: string;
     nickname: string;
     comment: string;
+    createdAt: string | Date;
   }[];
   cleanliness?: number;
   facility?: number;
@@ -92,24 +93,33 @@ export default async function ToiletDetailPage({
       <div className="reviews">
         <h3>댓글</h3>
         {toilet.reviews?.length > 0 ? (
-          toilet.reviews.map((review) => (
-            <div key={review._id} className="comment-item">
-              <div className="comment-content">
-                <span>
-                  <strong>{review.nickname}</strong>: {review.comment}
-                </span>
-                {review.userId === currentUserId && (
-                  <DeleteCommentButton toiletId={params.id} commentId={review._id} />
-                )}
+          [...toilet.reviews]
+            .sort((a, b) => {
+              const timeA = new Date(a.createdAt).getTime();
+              const timeB = new Date(b.createdAt).getTime();
+              return timeB - timeA; // 최신순 정렬
+            })
+            .map((review) => (
+              <div key={review._id} className="comment-item">
+                <div className="comment-content">
+                  <span>
+                    <strong>{review.nickname}</strong>: {review.comment}
+                  </span>
+                  {review.userId === currentUserId && (
+                    <DeleteCommentButton toiletId={params.id} commentId={review._id} />
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            ))
         ) : (
           <p>아직 등록된 댓글이 없습니다.</p>
         )}
       </div>
 
-      <a className="comment-btn" href={`/toilet/${params.id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
+      <a
+        className="comment-btn"
+        href={`/toilet/${params.id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}
+      >
         댓글 추가하기
       </a>
     </div>

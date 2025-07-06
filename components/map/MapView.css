@@ -1,10 +1,9 @@
-/* ✅ 기본 레이아웃 */
 .map-wrapper {
   padding: 1rem;
   height: 93vh;
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .top-ui {
@@ -30,9 +29,22 @@
   cursor: pointer;
   transition: 0.2s;
 }
-
 .filter-btn.active {
   background-color: #e9e7f8;
+}
+
+.toggle-filter-btn {
+  background-color: #4E3CDB;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.toggle-filter-btn:hover {
+  background-color: #6b63b6;
 }
 
 .map-container {
@@ -45,92 +57,86 @@
 
 /* ✅ InfoWindow 스타일 */
 .info-window {
-  padding: 10px;
-  min-width: 180px;
-  max-width: 220px; /* ✅ 너비 제한 추가 */
+  background: white;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  max-width: 240px;
   font-family: 'Segoe UI', sans-serif;
   font-size: 0.9rem;
   color: #333;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.custom-close-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.6rem;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #aaa;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.custom-close-btn:hover {
+  color: #333;
 }
 
 .info-title {
-  font-weight: bold;
-  font-size: 1rem;
-  margin-bottom: 4px;
-  color: #333;
-  word-break: keep-all; /* ✅ 단어 단위 줄바꿈 */
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #4E3CDB;
+  word-break: keep-all;
   overflow-wrap: break-word;
 }
 
 .info-rating {
   color: #f5a623;
   font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .info-keywords {
-  margin-top: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
   font-size: 0.75rem;
+}
+
+.info-keywords span {
+  background-color: #f2f0fb;
   color: #4E3CDB;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.5rem;
 }
 
 .info-link {
-  display: block;              /* ✅ block으로 바꾸기 */
-  width: 100%;                 /* ✅ 부모 너비 다 쓰기 */
-  text-align: center;
-  margin-top: 8px;
-  padding: 0.4rem 0;
-  font-weight: bold;
-  color: #4E3CDB;
-  background-color: #e9e7f8;
-  border-radius: 0.4rem;
-  text-decoration: none;
+  display: inline-block;
+  margin-top: 0.3rem;
+  padding: 0.5rem;
   font-size: 0.85rem;
-  transition: background-color 0.2s ease;
-}
-
-.info-link:hover {
-  background-color: #d4d0f0;
-}
-
-
-/* ✅ 필터 보기 토글 버튼 */
-.toggle-filter-btn {
-  background-color: #4E3CDB;
+  font-weight: bold;
   color: white;
-  border: none;
+  background-color: #4E3CDB;
   border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
   transition: background-color 0.2s ease;
 }
-
-.toggle-filter-btn:hover {
+.info-link:hover {
   background-color: #6b63b6;
 }
 
-/* ✅ 검색창 애니메이션 (사용 중이면 유지) */
-.search-input {
-  width: 0;
-  opacity: 0;
-  padding: 0;
-  border: none;
-  transition: all 0.3s ease;
-  margin-left: 0.5rem;
-  border-radius: 0.25rem;
-}
-
-.search-input.open {
-  width: 12.5rem;
-  opacity: 1;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid #ccc;
-}
-
-.search-input.closed {
-  width: 0;
-  opacity: 0;
-  padding: 0;
-  border: none;
+/* Kakao 기본 테두리 제거 */
+div[class^="wrap"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }

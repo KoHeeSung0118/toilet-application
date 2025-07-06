@@ -67,11 +67,11 @@ export default function LoginPage() {
           />
           로그인 정보 저장
         </label>
-        <button type="submit" className="login-button">Sign in</button>
+        <button type="submit" className="login-button">로그인</button>
       </form>
 
       <Link href="/signup" className="login-button link-button">
-        Sign up
+        회원가입
       </Link>
     </div>
   );

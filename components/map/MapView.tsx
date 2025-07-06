@@ -101,11 +101,12 @@ export default function MapView() {
 
       const content = `
         <div class="info-window">
+          <button class="custom-close-btn" title="닫기">&times;</button>
           <div class="info-title">${place.place_name}</div>
           <div class="info-rating">${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})</div>
           ${
             place.keywords.length
-              ? `<div class="info-keywords">${place.keywords.map((kw: string) => `#${kw}`).join(' ')}</div>`
+              ? `<div class="info-keywords">${place.keywords.map((kw: string) => `<span>#${kw}</span>`).join(' ')}</div>`
               : ''
           }
           <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}">자세히 보기</a>
@@ -114,7 +115,7 @@ export default function MapView() {
 
       const infowindow = new window.kakao.maps.InfoWindow({
         content,
-        removable: true,
+        removable: false,
       });
 
       window.kakao.maps.event.addListener(marker, 'click', () => {
@@ -122,6 +123,13 @@ export default function MapView() {
         if (currentInfoWindow) currentInfoWindow.close();
         infowindow.open(mapRef.current, marker);
         currentInfoWindow = infowindow;
+
+        setTimeout(() => {
+          const closeBtn = document.querySelector('.custom-close-btn');
+          closeBtn?.addEventListener('click', () => {
+            infowindow.close();
+          });
+        }, 100);
       });
     });
 

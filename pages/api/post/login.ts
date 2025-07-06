@@ -18,30 +18,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ message: '사용자를 찾을 수 없습니다.' });
   }
 
-  const ismatch = await bcrypt.compare(password, user.password);
-  if (!ismatch) {
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
     return res.status(401).json({ message: '비밀번호가 틀렸습니다.' });
   }
+
   const JWT_SECRET = process.env.JWT_SECRET!;
   const isRememberChecked = remember === 'on';
-  const maxAge = isRememberChecked ? 60 * 60 * 24 * 30 : undefined;
+
+  // ✅ expiresIn과 maxAge를 초 단위로 정확히 일치시킴
+  const maxAge = isRememberChecked ? 60 * 60 * 24 * 30 : 60 * 60; // 30일 or 1시간
 
   const token = jwt.sign(
     { userId: user._id.toString(), email: user.email },
     JWT_SECRET,
-    { expiresIn: isRememberChecked ? '30d' : '1h' }
+    { expiresIn: maxAge } // expiresIn에 숫자(초)도 가능
   );
 
-const cookie = serialize('token', token, {
-  path: '/',
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: false, // 로컬 개발환경에서는 반드시 false
-  maxAge: 60 * 60 * 24 * 7,
-});
-res.setHeader('Set-Cookie', cookie);
+  const cookie = serialize('token', token, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: false, // 로컬 개발 환경에선 false
+    maxAge, // ✅ 쿠키 유효기간도 정확히 맞춤
+  });
 
-
-  // ❗ redirect 대신 JSON 응답 (프론트에서 router.push 사용)
+  res.setHeader('Set-Cookie', cookie);
   return res.status(200).json({ message: '로그인 성공' });
 }

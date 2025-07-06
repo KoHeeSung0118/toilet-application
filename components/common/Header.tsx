@@ -18,7 +18,7 @@ export default function Header() {
   const handleLogout = async () => {
     if (!confirm('정말로 로그아웃 하시겠습니까?')) return;
 
-    const res = await fetch('/api/logout', {
+    const res = await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
     });
