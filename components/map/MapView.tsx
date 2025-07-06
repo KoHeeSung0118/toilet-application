@@ -89,52 +89,66 @@ export default function MapView() {
     markers.forEach((marker) => marker.setMap(null));
     setMarkers([]);
 
-    let currentInfoWindow: any = null;
+    let currentOverlay: any = null;
     const newMarkers: any[] = [];
 
     toilets.forEach((place) => {
+      const position = new window.kakao.maps.LatLng(place.y, place.x);
+
+      // ✅ 마커 이미지 설정
+      const markerImage = new window.kakao.maps.MarkerImage(
+        '/marker/toilet-icon.png',
+        new window.kakao.maps.Size(40, 40),
+        { offset: new window.kakao.maps.Point(20, 40) }
+      );
+
+      // ✅ 이미지 마커로 생성
       const marker = new window.kakao.maps.Marker({
         map: mapRef.current,
-        position: new window.kakao.maps.LatLng(place.y, place.x),
+        position,
+        image: markerImage,
       });
+
       newMarkers.push(marker);
 
-      const content = `
-        <div class="info-window">
-          <button class="custom-close-btn" title="닫기">&times;</button>
-          <div class="info-title">${place.place_name}</div>
-          <div class="info-rating">${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})</div>
-          ${
-            place.keywords.length
-              ? `<div class="info-keywords">${place.keywords.map((kw: string) => `<span>#${kw}</span>`).join(' ')}</div>`
-              : ''
-          }
-          <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}">자세히 보기</a>
-        </div>
-      `;
+      const content = document.createElement('div');
+      content.className = 'custom-overlay-box';
+      content.innerHTML = `
+      <div class="custom-overlay">
+        <button class="custom-close-btn" title="닫기">&times;</button>
+        <div class="info-title">${place.place_name}</div>
+        <div class="info-rating">${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})</div>
+        ${place.keywords.length
+          ? `<div class="info-keywords">${place.keywords.map((kw: string) => `<span>#${kw}</span>`).join(' ')}</div>`
+          : ''
+        }
+        <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}">자세히 보기</a>
+      </div>
+    `;
 
-      const infowindow = new window.kakao.maps.InfoWindow({
+      const overlay = new window.kakao.maps.CustomOverlay({
         content,
-        removable: false,
+        position,
+        xAnchor: 0.5,
+        yAnchor: 1.1,
       });
 
       window.kakao.maps.event.addListener(marker, 'click', () => {
-        mapRef.current.panTo(marker.getPosition());
-        if (currentInfoWindow) currentInfoWindow.close();
-        infowindow.open(mapRef.current, marker);
-        currentInfoWindow = infowindow;
+        mapRef.current.panTo(position);
+        if (currentOverlay) currentOverlay.setMap(null);
+        overlay.setMap(mapRef.current);
+        currentOverlay = overlay;
 
         setTimeout(() => {
-          const closeBtn = document.querySelector('.custom-close-btn');
-          closeBtn?.addEventListener('click', () => {
-            infowindow.close();
-          });
-        }, 100);
+          const closeBtn = content.querySelector('.custom-close-btn');
+          closeBtn?.addEventListener('click', () => overlay.setMap(null));
+        }, 50);
       });
     });
 
     setMarkers(newMarkers);
   };
+
 
   const searchToilets = async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
@@ -181,8 +195,8 @@ export default function MapView() {
   const filteredToilets = selectedFilters.length === 0
     ? allToilets
     : allToilets.filter((t) =>
-        selectedFilters.every((kw) => t.keywords?.includes(kw))
-      );
+      selectedFilters.every((kw) => t.keywords?.includes(kw))
+    );
 
   useEffect(() => {
     if (mapRef.current) {

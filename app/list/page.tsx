@@ -15,8 +15,18 @@ export default function ToiletListPage() {
       ) : (
         <ul className="toilet-list">
           {toiletList.map((toilet, index) => {
-            const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
-            const comment = toilet.reviews?.[0]?.comment ?? '댓글 없음';
+            const rating =
+              typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
+
+            // ✅ 최신 댓글 추출
+            const latestComment =
+              toilet.reviews
+                ?.slice()
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime()
+                )[0]?.comment ?? '댓글 없음';
 
             return (
               <li className="modern-toilet-card" key={index}>
@@ -33,8 +43,11 @@ export default function ToiletListPage() {
                 </div>
 
                 <div className="card-right">
-                  <FavoriteButton toiletId={toilet.id} placeName={toilet.place_name} />
-                  <div className="toilet-comment">{comment}</div>
+                  <FavoriteButton
+                    toiletId={toilet.id}
+                    placeName={toilet.place_name}
+                  />
+                  <div className="toilet-comment">{latestComment}</div>
                 </div>
               </li>
             );
