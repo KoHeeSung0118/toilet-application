@@ -31,7 +31,7 @@ export default function MapView() {
   const [markers, setMarkers] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const searchParams = useSearchParams();
-  const queryKeyword = searchParams.get('query');
+  const queryKeyword = searchParams?.get('query');
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -74,15 +74,25 @@ export default function MapView() {
 
   const handleQuerySearch = (keyword: string) => {
     const geocoder = new window.kakao.maps.services.Geocoder();
-    geocoder.addressSearch(keyword, (result, status) => {
+    geocoder.addressSearch(
+      keyword,
+      (
+      result: {
+        x: string;
+        y: string;
+        [key: string]: any;
+      }[],
+      status: string
+      ) => {
       if (status === window.kakao.maps.services.Status.OK) {
-        const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
+        const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
         mapRef.current.setCenter(coords);
-        searchToilets(result[0].y, result[0].x);
+        searchToilets(Number(result[0].y), Number(result[0].x));
       } else {
         alert('검색 결과가 없습니다.');
       }
-    });
+      }
+    );
   };
 
   const renderMarkers = (toilets: any[]) => {
@@ -152,42 +162,65 @@ export default function MapView() {
 
   const searchToilets = async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
+    interface KakaoPlace {
+      id: string;
+      place_name: string;
+      x: string;
+      y: string;
+      [key: string]: any;
+    }
+
+    interface ToiletDbData {
+      overallRating?: number;
+      reviews?: any[];
+      keywords?: string[];
+    }
+
+    interface EnrichedToilet extends KakaoPlace {
+      overallRating: number;
+      reviews: any[];
+      keywords: string[];
+    }
+
     ps.keywordSearch(
       '화장실',
-      async (data, status) => {
-        if (status !== window.kakao.maps.services.Status.OK) return;
+      async (
+      data: KakaoPlace[],
+      status: string
+      ) => {
+      if (status !== window.kakao.maps.services.Status.OK) return;
 
-        const enriched = await Promise.all(
-          data.map(async (place) => {
-            try {
-              const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
-              if (!res.ok) throw new Error();
-              const dbData = await res.json();
-              return {
-                ...place,
-                overallRating: dbData.overallRating ?? 3,
-                reviews: dbData.reviews ?? [],
-                keywords: dbData.keywords ?? [],
-              };
-            } catch {
-              return {
-                ...place,
-                overallRating: 3,
-                reviews: [],
-                keywords: [],
-              };
-            }
-          })
-        );
+      const enriched: EnrichedToilet[] = await Promise.all(
+        data.map(async (place: KakaoPlace): Promise<EnrichedToilet> => {
+        try {
+          const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
+          if (!res.ok) throw new Error();
+          const dbData: ToiletDbData = await res.json();
+          return {
+          ...place,
+          overallRating: dbData.overallRating ?? 3,
+          reviews: dbData.reviews ?? [],
+          keywords: dbData.keywords ?? [],
+          };
+        } catch {
+          return {
+          ...place,
+          overallRating: 3,
+          reviews: [],
+          keywords: [],
+          };
+        }
+        })
+      );
 
-        setToiletList(enriched);
-        localStorage.setItem('toiletList', JSON.stringify(enriched));
-        setAllToilets(enriched);
-        renderMarkers(enriched);
+      setToiletList(enriched);
+      localStorage.setItem('toiletList', JSON.stringify(enriched));
+      setAllToilets(enriched);
+      renderMarkers(enriched);
       },
       {
-        location: new window.kakao.maps.LatLng(lat, lng),
-        radius: 20000,
+      location: new window.kakao.maps.LatLng(lat, lng),
+      radius: 20000,
       }
     );
   };

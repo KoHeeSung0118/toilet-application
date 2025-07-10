@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 export default function ClientOnlyBackButton() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get('from');
+  const from = searchParams?.get('from');
 
   const handleBack = () => {
     if (from) {

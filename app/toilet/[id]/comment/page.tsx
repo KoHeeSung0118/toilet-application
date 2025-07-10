@@ -9,9 +9,9 @@ export default function CommentPage() {
   const searchParams = useSearchParams();
   const params = useParams();
 
-  const placeName = searchParams.get('place_name') ?? '이름 미정';
-  const from = searchParams.get('from') ?? '';
-  const toiletId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const placeName = searchParams?.get('place_name') ?? '이름 미정';
+  const from = searchParams?.get('from') ?? '';
+  const toiletId = params && params.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : undefined;
 
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);

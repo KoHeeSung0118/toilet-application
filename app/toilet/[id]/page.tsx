@@ -92,8 +92,8 @@ export default async function ToiletDetailPage({
 
       <div className="reviews">
         <h3>댓글</h3>
-        {toilet.reviews?.length > 0 ? (
-          [...toilet.reviews]
+        {(toilet.reviews?.length ?? 0) > 0 ? (
+          [...toilet.reviews!]
             .sort((a, b) => {
               const timeA = new Date(a.createdAt).getTime();
               const timeB = new Date(b.createdAt).getTime();

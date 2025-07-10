@@ -9,7 +9,7 @@ export default function RatingPage() {
   const searchParams = useSearchParams();
   const params = useParams();
   const id = params?.id as string;
-  const from = searchParams.get('from') ?? '';
+  const from = searchParams?.get('from') ?? '';
 
   const [placeName, setPlaceName] = useState('불러오는 중...');
   const [overall, setOverall] = useState(0);

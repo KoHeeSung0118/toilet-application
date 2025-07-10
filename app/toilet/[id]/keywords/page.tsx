@@ -21,8 +21,8 @@ export default function KeywordPage() {
   const searchParams = useSearchParams();
   const params = useParams();
   const id = params?.id as string;
-  const placeName = searchParams.get('place_name') ?? '이름 미정';
-  const from = searchParams.get('from') ?? '';
+  const placeName = searchParams?.get('place_name') ?? '이름 미정';
+  const from = searchParams?.get('from') ?? '';
 
   useEffect(() => {
     const fetchKeywords = async () => {

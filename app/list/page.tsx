@@ -22,11 +22,17 @@ export default function ToiletListPage() {
             const latestComment =
               toilet.reviews
                 ?.slice()
-                .sort(
-                  (a, b) =>
-                    new Date(b.createdAt).getTime() -
-                    new Date(a.createdAt).getTime()
-                )[0]?.comment ?? '댓글 없음';
+                .sort((a, b) => {
+                  const dateA =
+                    'createdAt' in a && a.createdAt && (typeof a.createdAt === 'string' || typeof a.createdAt === 'number' || a.createdAt instanceof Date)
+                      ? new Date(a.createdAt).getTime()
+                      : 0;
+                  const dateB =
+                    'createdAt' in b && b.createdAt && (typeof b.createdAt === 'string' || typeof b.createdAt === 'number' || b.createdAt instanceof Date)
+                      ? new Date(b.createdAt).getTime()
+                      : 0;
+                  return dateB - dateA;
+                })[0]?.comment ?? '댓글 없음';
 
             return (
               <li className="modern-toilet-card" key={index}>

@@ -29,6 +29,7 @@
   cursor: pointer;
   transition: 0.2s;
 }
+
 .filter-btn.active {
   background-color: #e9e7f8;
 }
@@ -43,6 +44,7 @@
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
+
 .toggle-filter-btn:hover {
   background-color: #6b63b6;
 }
@@ -92,6 +94,7 @@
   cursor: pointer;
   transition: color 0.2s ease;
 }
+
 .custom-close-btn:hover {
   color: #333;
 }
@@ -101,6 +104,12 @@
   font-size: 1.05rem;
   color: #4E3CDB;
   word-break: keep-all;
+  word-break: break-word;
+  /* ✅ 긴 단어 줄바꿈 허용 */
+  overflow-wrap: break-word;
+  /* ✅ 긴 단어도 줄바꿈 */
+  white-space: normal;
+  /* ✅ 줄바꿈 허용 */
   padding-right: 2rem;
 }
 
@@ -138,6 +147,7 @@
   text-decoration: none;
   transition: background-color 0.2s ease;
 }
+
 .info-link:hover {
   background-color: #6b63b6;
 }
