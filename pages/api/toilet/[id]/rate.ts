@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ success: true, result });
   } catch (err) {
-    // console.error('🚨 별점 등록 실패:', err);
+    console.error('🚨 별점 등록 실패:', err);
     return res.status(500).json({ error: '업데이트 실패' });
   }
 }
