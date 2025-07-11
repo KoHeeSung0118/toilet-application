@@ -5,9 +5,10 @@ import FavoriteButton from '@/components/favorite/FavoriteButton';
 import Link from 'next/link';
 import '../list/ToiletList.css';
 import './FavoritePage.css';
+import type { Toilet } from '@/context/ToiletContext';
 
 export default function FavoritePage() {
-  const [favorites, setFavorites] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<Toilet[]>([]);
   const [removingIds, setRemovingIds] = useState<string[]>([]);
 
   useEffect(() => {

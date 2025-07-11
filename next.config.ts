@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 
 const nextConfig = {
   /* config options here */
-    webpack(config: any) {
+    webpack(config: NextConfig) {
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       '@': path.resolve(__dirname),

@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
 import jwt from 'jsonwebtoken';
-import { ObjectId } from 'mongodb';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -19,6 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     userId = decoded.userId;
   } catch (error) {
+    console.error(error);
     return res.status(401).json({ message: '유효하지 않은 토큰' });
   }
 
