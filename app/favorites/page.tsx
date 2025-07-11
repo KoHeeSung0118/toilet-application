@@ -7,10 +7,20 @@ import '../list/ToiletList.css';
 import './FavoritePage.css';
 import type { Toilet } from '@/context/ToiletContext';
 
+// ✅ Toilet 타입 명시
+interface Toilet {
+  id: string;
+  place_name: string;
+  overallRating?: number;
+  reviews?: {
+    comment: string;
+    [key: string]: unknown;
+  }[];
+}
+
 export default function FavoritePage() {
   const [favorites, setFavorites] = useState<Toilet[]>([]);
-  const [removingIds, setRemovingIds] = useState<string[]>([]);
-
+  const [removingIds, setRemovingIds] = useState<string[]>([]); // ✅ any → string[]
 
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
@@ -29,10 +39,10 @@ export default function FavoritePage() {
   }, []);
 
   const handleUnfavorite = (toiletId: string) => {
-    setRemovingIds(prev => [...prev, toiletId]);
+    setRemovingIds((prev) => [...prev, toiletId]);
     setTimeout(() => {
-      setFavorites(prev => prev.filter(t => t.id !== toiletId));
-      setRemovingIds(prev => prev.filter(id => id !== toiletId));
+      setFavorites((prev) => prev.filter((t) => t.id !== toiletId));
+      setRemovingIds((prev) => prev.filter((id) => id !== toiletId));
     }, 400);
   };
 
@@ -43,23 +53,32 @@ export default function FavoritePage() {
       ) : (
         <ul className="toilet-list">
           {favorites.map((toilet) => {
-            const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
-            const comment = toilet.reviews?.[0]?.comment ?? '댓글 없음';
+            const rating =
+              typeof toilet.overallRating === 'number'
+                ? toilet.overallRating
+                : 3;
+            const comment =
+              toilet.reviews?.[0]?.comment ?? '댓글 없음';
 
             return (
               <li
-                className={`modern-toilet-card ${removingIds.includes(toilet.id) ? 'fade-out' : ''}`}
+                className={`modern-toilet-card ${
+                  removingIds.includes(toilet.id) ? 'fade-out' : ''
+                }`}
                 key={toilet.id}
               >
                 <div className="card-left">
                   <Link
-                    href={`/toilet/${toilet.id}?from=favorites&place_name=${encodeURIComponent(toilet.place_name)}`}
+                    href={`/toilet/${toilet.id}?from=favorites&place_name=${encodeURIComponent(
+                      toilet.place_name
+                    )}`}
                     className="toilet-name-link"
                   >
                     <div className="toilet-name">{toilet.place_name}</div>
                   </Link>
                   <div className="toilet-rating">
-                    <span className="star">★</span> {rating.toFixed(1)}
+                    <span className="star">★</span>{' '}
+                    {rating.toFixed(1)}
                   </div>
                 </div>
 
