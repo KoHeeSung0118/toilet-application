@@ -7,7 +7,9 @@ import { useToilet } from '@/context/ToiletContext';
 import { useSearchParams } from 'next/navigation';
 
 declare global {
+  // kakao map library does not provide TypeScript types
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     kakao: any;
   }
 }
@@ -23,12 +25,37 @@ const FILTERS = [
   '냄새 좋음',
 ];
 
+interface KakaoPlace {
+  id: string;
+  place_name: string;
+  x: string;
+  y: string;
+  [key: string]: unknown;
+}
+
+interface ToiletDbData {
+  overallRating?: number;
+  reviews?: unknown[];
+  keywords?: string[];
+}
+
+interface EnrichedToilet extends KakaoPlace {
+  overallRating: number;
+  reviews: unknown[];
+  keywords: string[];
+}
+
+interface KakaoMap {
+  setCenter: (latlng: unknown) => void;
+  panTo: (latlng: unknown) => void;
+}
+
 export default function MapView() {
   const { setToiletList } = useToilet();
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<KakaoMap | null>(null);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [allToilets, setAllToilets] = useState<any[]>([]);
-  const [markers, setMarkers] = useState<any[]>([]);
+  const [allToilets, setAllToilets] = useState<EnrichedToilet[]>([]);
+  const [markers, setMarkers] = useState<Array<{ setMap: (map: unknown | null) => void }>>([]);
   const [showFilters, setShowFilters] = useState(false);
   const searchParams = useSearchParams();
   const queryKeyword = searchParams?.get('query');
@@ -68,7 +95,7 @@ export default function MapView() {
       level: 3,
     });
 
-    mapRef.current = map;
+    mapRef.current = map as unknown as KakaoMap;
     searchToilets(lat, lng);
   };
 
@@ -77,16 +104,16 @@ export default function MapView() {
     geocoder.addressSearch(
       keyword,
       (
-      result: {
+      result: Array<{
         x: string;
         y: string;
-        [key: string]: any;
-      }[],
+        [key: string]: unknown;
+      }>,
       status: string
       ) => {
       if (status === window.kakao.maps.services.Status.OK) {
         const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
-        mapRef.current.setCenter(coords);
+        (mapRef.current as KakaoMap).setCenter(coords);
         searchToilets(Number(result[0].y), Number(result[0].x));
       } else {
         alert('검색 결과가 없습니다.');
@@ -95,12 +122,12 @@ export default function MapView() {
     );
   };
 
-  const renderMarkers = (toilets: any[]) => {
+  const renderMarkers = (toilets: EnrichedToilet[]) => {
     markers.forEach((marker) => marker.setMap(null));
     setMarkers([]);
 
-    let currentOverlay: any = null;
-    const newMarkers: any[] = [];
+    let currentOverlay: unknown = null;
+    const newMarkers: Array<{ setMap: (map: unknown | null) => void }> = [];
 
     toilets.forEach((place) => {
       const position = new window.kakao.maps.LatLng(place.y, place.x);
@@ -114,7 +141,7 @@ export default function MapView() {
 
       // ✅ 이미지 마커로 생성
       const marker = new window.kakao.maps.Marker({
-        map: mapRef.current,
+        map: mapRef.current as unknown as KakaoMap,
         position,
         image: markerImage,
       });
@@ -144,9 +171,9 @@ export default function MapView() {
       });
 
       window.kakao.maps.event.addListener(marker, 'click', () => {
-        mapRef.current.panTo(position);
+        (mapRef.current as KakaoMap).panTo(position);
         if (currentOverlay) currentOverlay.setMap(null);
-        overlay.setMap(mapRef.current);
+        overlay.setMap(mapRef.current as unknown as KakaoMap);
         currentOverlay = overlay;
 
         setTimeout(() => {
@@ -162,25 +189,6 @@ export default function MapView() {
 
   const searchToilets = async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
-    interface KakaoPlace {
-      id: string;
-      place_name: string;
-      x: string;
-      y: string;
-      [key: string]: any;
-    }
-
-    interface ToiletDbData {
-      overallRating?: number;
-      reviews?: any[];
-      keywords?: string[];
-    }
-
-    interface EnrichedToilet extends KakaoPlace {
-      overallRating: number;
-      reviews: any[];
-      keywords: string[];
-    }
 
     ps.keywordSearch(
       '화장실',

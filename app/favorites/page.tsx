@@ -5,15 +5,16 @@ import FavoriteButton from '@/components/favorite/FavoriteButton';
 import Link from 'next/link';
 import '../list/ToiletList.css';
 import './FavoritePage.css';
+import type { Toilet } from '@/context/ToiletContext';
 
 export default function FavoritePage() {
-  const [favorites, setFavorites] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<Toilet[]>([]);
   const [removingIds, setRemovingIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
-      .then((res) => res.json())
-      .then((data) => {
+      .then((res: Response) => res.json())
+      .then((data: unknown) => {
         if (Array.isArray(data)) {
           setFavorites(data);
         } else {
@@ -21,7 +22,7 @@ export default function FavoritePage() {
           setFavorites([]);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('❌ 즐겨찾기 불러오기 실패:', err);
       });
   }, []);
