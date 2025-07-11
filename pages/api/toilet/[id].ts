@@ -20,7 +20,7 @@ interface Toilet {
   facility: number;
   convenience: number;
   overallRating: number;
-  [key: string]: any; // MongoDB 내부 필드(_id 등)를 허용하기 위해 유지
+  [key: string]: unknown; // MongoDB 내부 필드(_id 등)를 허용하기 위해 유지
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
