@@ -3,18 +3,35 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id, place_name = '이름 미정' } = req.query;
+  const { id, place_name: rawPlaceName = '이름 미정' } = req.query;
+  const place_name = Array.isArray(rawPlaceName) ? rawPlaceName[0] : rawPlaceName;
 
   if (typeof id !== 'string') {
     return res.status(400).json({ error: '잘못된 요청입니다.' });
   }
 
   const db = (await connectDB).db('toilet_app');
-  let toilet = await db.collection('toilets').findOne({ id });
+  interface Toilet {
+    id: string;
+    place_name: string;
+    address_name: string;
+    road_address_name: string;
+    x: string;
+    y: string;
+    keywords: any[];
+    reviews: any[];
+    cleanliness: number;
+    facility: number;
+    convenience: number;
+    overallRating: number;
+    [key: string]: any;
+  }
+
+  let toilet = await db.collection('toilets').findOne<Toilet>({ id });
 
   // 📌 없으면 새로 등록
   if (!toilet) {
-    toilet = {
+    const newToilet: Toilet = {
       id,
       place_name,
       address_name: '',
@@ -29,20 +46,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       overallRating: 3,
     };
 
-    await db.collection('toilets').insertOne(toilet);
+    await db.collection('toilets').insertOne(newToilet);
+    toilet = await db.collection('toilets').findOne<Toilet>({ id });
   }
 
-  const parseDecimal = (v: unknown): number | undefined => {
-    if (
-      typeof v === 'object' &&
-      v !== null &&
-      '$numberDecimal' in v &&
-      typeof (v as { $numberDecimal: string }).$numberDecimal === 'string'
-    ) {
-      return parseFloat((v as { $numberDecimal: string }).$numberDecimal);
+  const parseDecimal = (v: any): number | undefined => {
+    if (typeof v === 'object' && v?.$numberDecimal) {
+      return parseFloat(v.$numberDecimal);
     }
     return typeof v === 'number' ? v : undefined;
   };
+
+  if (!toilet) {
+    return res.status(500).json({ error: '화장실 정보를 찾을 수 없습니다.' });
+  }
 
   const {
     place_name: name,
