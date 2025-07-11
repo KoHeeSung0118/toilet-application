@@ -6,14 +6,6 @@ import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
 import { useSearchParams } from 'next/navigation';
 
-declare global {
-  interface Window {
-    kakao: {
-      maps: typeof kakao.maps;
-    };
-  }
-}
-
 const FILTERS = [
   '화장실 칸 많음',
   '화장실 칸 적음',
@@ -44,22 +36,20 @@ interface EnrichedToilet extends KakaoPlace {
   keywords: string[];
 }
 
-interface MarkerWithOverlay {
-  setMap: (map: unknown | null) => void;
-}
-
 export default function MapView() {
   const { setToiletList } = useToilet();
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<any>(null); // ✅ kakao.maps.Map 타입이 없을 수 있어 any로 안전 처리
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<EnrichedToilet[]>([]);
-  const [markers, setMarkers] = useState<MarkerWithOverlay[]>([]);
+  const [markers, setMarkers] = useState<any[]>([]); // ✅ 마커 타입도 any
   const [showFilters, setShowFilters] = useState(false);
   const searchParams = useSearchParams();
   const queryKeyword = searchParams?.get('query');
 
   const initMap = useCallback((lat: number, lng: number) => {
     const container = document.getElementById('map');
+    if (!container || !window.kakao?.maps) return;
+
     const map = new window.kakao.maps.Map(container, {
       center: new window.kakao.maps.LatLng(lat, lng),
       level: 3,
@@ -70,6 +60,8 @@ export default function MapView() {
   }, []);
 
   const handleQuerySearch = useCallback((keyword: string) => {
+    if (!window.kakao?.maps?.services) return;
+
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
       if (status === window.kakao.maps.services.Status.OK) {
@@ -105,11 +97,11 @@ export default function MapView() {
   }, [handleQuerySearch, initMap, queryKeyword]);
 
   const renderMarkers = useCallback((toilets: EnrichedToilet[]) => {
-    markers.forEach((m) => m.setMap(null));
+    markers.forEach((marker) => marker.setMap(null));
     setMarkers([]);
 
-    let currentOverlay: MarkerWithOverlay | null = null;
-    const newMarkers: MarkerWithOverlay[] = [];
+    let currentOverlay: any = null;
+    const newMarkers: any[] = [];
 
     toilets.forEach((place) => {
       const position = new window.kakao.maps.LatLng(place.y, place.x);
@@ -141,7 +133,7 @@ export default function MapView() {
 
       window.kakao.maps.event.addListener(marker, 'click', () => {
         mapRef.current?.panTo(position);
-        if (currentOverlay) currentOverlay.setMap(null);
+        currentOverlay?.setMap(null);
         overlay.setMap(mapRef.current);
         currentOverlay = overlay;
 
@@ -157,13 +149,14 @@ export default function MapView() {
   }, [markers]);
 
   const searchToilets = async (lat: number, lng: number) => {
-    const ps = new window.kakao.maps.services.Places();
+    if (!window.kakao?.maps?.services) return;
 
-    ps.keywordSearch('화장실', async (data: KakaoPlace[], status: string) => {
+    const ps = new window.kakao.maps.services.Places();
+    ps.keywordSearch('화장실', async (data, status) => {
       if (status !== window.kakao.maps.services.Status.OK) return;
 
-      const enriched: EnrichedToilet[] = await Promise.all(
-        data.map(async (place) => {
+      const enriched = await Promise.all(
+        data.map(async (place: KakaoPlace) => {
           try {
             const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
             const dbData: ToiletDbData = await res.json();
@@ -212,9 +205,7 @@ export default function MapView() {
                 className={`filter-btn ${selectedFilters.includes(filter) ? 'active' : ''}`}
                 onClick={() =>
                   setSelectedFilters((prev) =>
-                    prev.includes(filter)
-                      ? prev.filter((f) => f !== filter)
-                      : [...prev, filter]
+                    prev.includes(filter) ? prev.filter((f) => f !== filter) : [...prev, filter]
                   )
                 }
               >
