@@ -5,24 +5,30 @@ import FavoriteButton from '@/components/favorite/FavoriteButton';
 import Link from 'next/link';
 import '../list/ToiletList.css';
 import './FavoritePage.css';
-import type { Toilet } from '@/context/ToiletContext';
+
+interface FavoriteToilet {
+  id: string;
+  place_name: string;
+  overallRating?: number;
+  reviews?: { user: string; comment: string }[];
+}
 
 export default function FavoritePage() {
-  const [favorites, setFavorites] = useState<Toilet[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteToilet[]>([]);
   const [removingIds, setRemovingIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
       .then((res) => res.json())
-      .then((data: unknown) => {
+      .then((data) => {
         if (Array.isArray(data)) {
-          setFavorites(data as Toilet[]);
+          setFavorites(data);
         } else {
           console.error('❌ favorites가 배열이 아닙니다:', data);
           setFavorites([]);
         }
       })
-      .catch((err: unknown) => {
+      .catch((err) => {
         console.error('❌ 즐겨찾기 불러오기 실패:', err);
       });
   }, []);
@@ -42,8 +48,7 @@ export default function FavoritePage() {
       ) : (
         <ul className="toilet-list">
           {favorites.map((toilet) => {
-            const rating =
-              typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
+            const rating = toilet.overallRating ?? 3;
             const comment = toilet.reviews?.[0]?.comment ?? '댓글 없음';
 
             return (

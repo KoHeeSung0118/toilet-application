@@ -21,14 +21,14 @@
     "paths": {
       "@/*": ["./*"]
     }
+    // ✅ "types": ["kakao.maps"] 이 줄 제거!
   },
   "include": [
-  "next-env.d.ts",
-  "**/*.ts",
-  "**/*.tsx",
-  "global.d.ts",  // ✅ 명시하거나, 위 패턴에 포함되면 생략 가능
-  ".next/types/**/*.ts"
-]
-,
+    "global.d.ts",
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }
