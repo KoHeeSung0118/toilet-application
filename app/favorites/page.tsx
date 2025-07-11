@@ -5,6 +5,7 @@ import FavoriteButton from '@/components/favorite/FavoriteButton';
 import Link from 'next/link';
 import '../list/ToiletList.css';
 import './FavoritePage.css';
+import type { Toilet } from '@/context/ToiletContext';
 
 interface Toilet {
   id: string;

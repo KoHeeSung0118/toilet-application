@@ -16,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     userId = decoded.userId;
   } catch (err) {
+    console.error(err);
     return res.status(401).json({ message: '유효하지 않은 토큰입니다.' });
   }
 

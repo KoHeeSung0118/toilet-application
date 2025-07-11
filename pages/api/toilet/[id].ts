@@ -32,9 +32,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await db.collection('toilets').insertOne(toilet);
   }
 
-  const parseDecimal = (v: any): number | undefined => {
-    if (typeof v === 'object' && v?.$numberDecimal) {
-      return parseFloat(v.$numberDecimal);
+  const parseDecimal = (v: unknown): number | undefined => {
+    if (
+      typeof v === 'object' &&
+      v !== null &&
+      '$numberDecimal' in v &&
+      typeof (v as { $numberDecimal: string }).$numberDecimal === 'string'
+    ) {
+      return parseFloat((v as { $numberDecimal: string }).$numberDecimal);
     }
     return typeof v === 'number' ? v : undefined;
   };
