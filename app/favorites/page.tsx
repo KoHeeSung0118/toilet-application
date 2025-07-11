@@ -11,6 +11,7 @@ export default function FavoritePage() {
   const [favorites, setFavorites] = useState<Toilet[]>([]);
   const [removingIds, setRemovingIds] = useState<string[]>([]);
 
+
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
       .then((res: Response) => res.json())

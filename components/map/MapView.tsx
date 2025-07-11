@@ -126,7 +126,7 @@ export default function MapView() {
     markers.forEach((marker) => marker.setMap(null));
     setMarkers([]);
 
-    let currentOverlay: unknown = null;
+    let currentOverlay: { setMap: (map: unknown | null) => void } | null = null;
     const newMarkers: Array<{ setMap: (map: unknown | null) => void }> = [];
 
     toilets.forEach((place) => {
@@ -221,7 +221,20 @@ export default function MapView() {
         })
       );
 
-      setToiletList(enriched);
+      setToiletList(
+        enriched.map((toilet) => ({
+          ...toilet,
+          reviews: Array.isArray(toilet.reviews)
+            ? toilet.reviews.filter(
+                (r): r is { user: string; comment: string } =>
+                  typeof r === 'object' &&
+                  r !== null &&
+                  typeof (r as any).user === 'string' &&
+                  typeof (r as any).comment === 'string'
+              )
+            : []
+        }))
+      );
       localStorage.setItem('toiletList', JSON.stringify(enriched));
       setAllToilets(enriched);
       renderMarkers(enriched);
