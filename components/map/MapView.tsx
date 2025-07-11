@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -38,17 +39,17 @@ interface EnrichedToilet extends KakaoPlace {
 
 export default function MapView() {
   const { setToiletList } = useToilet();
-  const mapRef = useRef<any>(null); // ✅ kakao.maps.Map 타입이 없을 수 있어 any로 안전 처리
+  const mapRef = useRef<any>(null);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<EnrichedToilet[]>([]);
-  const [markers, setMarkers] = useState<any[]>([]); // ✅ 마커 타입도 any
+  const [markers, setMarkers] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const searchParams = useSearchParams();
   const queryKeyword = searchParams?.get('query');
 
   const initMap = useCallback((lat: number, lng: number) => {
     const container = document.getElementById('map');
-    if (!container || !window.kakao?.maps) return;
+    if (!container) return;
 
     const map = new window.kakao.maps.Map(container, {
       center: new window.kakao.maps.LatLng(lat, lng),
@@ -60,8 +61,6 @@ export default function MapView() {
   }, []);
 
   const handleQuerySearch = useCallback((keyword: string) => {
-    if (!window.kakao?.maps?.services) return;
-
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
       if (status === window.kakao.maps.services.Status.OK) {
@@ -106,7 +105,7 @@ export default function MapView() {
     toilets.forEach((place) => {
       const position = new window.kakao.maps.LatLng(place.y, place.x);
       const marker = new window.kakao.maps.Marker({
-        map: mapRef.current,
+        map: mapRef.current!,
         position,
         image: new window.kakao.maps.MarkerImage('/marker/toilet-icon.png', new window.kakao.maps.Size(40, 40)),
       });
@@ -149,13 +148,12 @@ export default function MapView() {
   }, [markers]);
 
   const searchToilets = async (lat: number, lng: number) => {
-    if (!window.kakao?.maps?.services) return;
-
     const ps = new window.kakao.maps.services.Places();
+
     ps.keywordSearch('화장실', async (data, status) => {
       if (status !== window.kakao.maps.services.Status.OK) return;
 
-      const enriched = await Promise.all(
+      const enriched: EnrichedToilet[] = await Promise.all(
         data.map(async (place: KakaoPlace) => {
           try {
             const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
@@ -188,7 +186,7 @@ export default function MapView() {
 
   useEffect(() => {
     if (mapRef.current) renderMarkers(filteredToilets);
-  }, [selectedFilters, renderMarkers]);
+  }, [filteredToilets, renderMarkers]);
 
   return (
     <div className="map-wrapper">
@@ -205,7 +203,8 @@ export default function MapView() {
                 className={`filter-btn ${selectedFilters.includes(filter) ? 'active' : ''}`}
                 onClick={() =>
                   setSelectedFilters((prev) =>
-                    prev.includes(filter) ? prev.filter((f) => f !== filter) : [...prev, filter]
+                      ? prev.filter((f) => f !== filter)
+                      : [...prev, filter]
                   )
                 }
               >
@@ -215,6 +214,7 @@ export default function MapView() {
           </div>
         )}
       </div>
+                    prev.includes(filter)
       <div id="map" className="map-container" />
     </div>
   );
