@@ -1,13 +1,18 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Header from '@/components/common/Header';
 import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
 import { useSearchParams } from 'next/navigation';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare global { interface Window { kakao: any } }
+declare global {
+  interface Window {
+    kakao: {
+      maps: typeof kakao.maps;
+    };
+  }
+}
 
 const FILTERS = [
   '화장실 칸 많음',
@@ -39,20 +44,43 @@ interface EnrichedToilet extends KakaoPlace {
   keywords: string[];
 }
 
-interface KakaoMap {
-  setCenter: (latlng: unknown) => void;
-  panTo: (latlng: unknown) => void;
+interface MarkerWithOverlay {
+  setMap: (map: unknown | null) => void;
 }
 
 export default function MapView() {
   const { setToiletList } = useToilet();
-  const mapRef = useRef<KakaoMap | null>(null);
+  const mapRef = useRef<any>(null);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<EnrichedToilet[]>([]);
-  const [markers, setMarkers] = useState<Array<{ setMap: (map: unknown | null) => void }>>([]);
+  const [markers, setMarkers] = useState<MarkerWithOverlay[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const searchParams = useSearchParams();
   const queryKeyword = searchParams?.get('query');
+
+  const initMap = useCallback((lat: number, lng: number) => {
+    const container = document.getElementById('map');
+    const map = new window.kakao.maps.Map(container, {
+      center: new window.kakao.maps.LatLng(lat, lng),
+      level: 3,
+    });
+
+    mapRef.current = map;
+    searchToilets(lat, lng);
+  }, []);
+
+  const handleQuerySearch = useCallback((keyword: string) => {
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    geocoder.addressSearch(keyword, (result, status) => {
+      if (status === window.kakao.maps.services.Status.OK) {
+        const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
+        mapRef.current?.setCenter(coords);
+        searchToilets(Number(result[0].y), Number(result[0].x));
+      } else {
+        alert('검색 결과가 없습니다.');
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -74,44 +102,14 @@ export default function MapView() {
         );
       });
     };
-  }, []);
+  }, [handleQuerySearch, initMap, queryKeyword]);
 
-  useEffect(() => {
-    if (mapRef.current && queryKeyword) {
-      handleQuerySearch(queryKeyword);
-    }
-  }, [queryKeyword]);
-
-  const initMap = (lat: number, lng: number) => {
-    const container = document.getElementById('map');
-    const map = new window.kakao.maps.Map(container, {
-      center: new window.kakao.maps.LatLng(lat, lng),
-      level: 3,
-    });
-
-    mapRef.current = map;
-    searchToilets(lat, lng);
-  };
-
-  const handleQuerySearch = (keyword: string) => {
-    const geocoder = new window.kakao.maps.services.Geocoder();
-    geocoder.addressSearch(keyword, (result, status) => {
-      if (status === window.kakao.maps.services.Status.OK) {
-        const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
-        mapRef.current?.setCenter(coords);
-        searchToilets(Number(result[0].y), Number(result[0].x));
-      } else {
-        alert('검색 결과가 없습니다.');
-      }
-    });
-  };
-
-  const renderMarkers = (toilets: EnrichedToilet[]) => {
+  const renderMarkers = useCallback((toilets: EnrichedToilet[]) => {
     markers.forEach((m) => m.setMap(null));
     setMarkers([]);
 
-    let currentOverlay: { setMap: (map: unknown | null) => void } | null = null;
-    const newMarkers: Array<{ setMap: (map: unknown | null) => void }> = [];
+    let currentOverlay: MarkerWithOverlay | null = null;
+    const newMarkers: MarkerWithOverlay[] = [];
 
     toilets.forEach((place) => {
       const position = new window.kakao.maps.LatLng(place.y, place.x);
@@ -146,6 +144,7 @@ export default function MapView() {
         if (currentOverlay) currentOverlay.setMap(null);
         overlay.setMap(mapRef.current);
         currentOverlay = overlay;
+
         setTimeout(() => {
           content.querySelector('.custom-close-btn')?.addEventListener('click', () => {
             overlay.setMap(null);
@@ -155,12 +154,12 @@ export default function MapView() {
     });
 
     setMarkers(newMarkers);
-  };
+  }, [markers]);
 
   const searchToilets = async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
 
-    ps.keywordSearch('화장실', async (data, status) => {
+    ps.keywordSearch('화장실', async (data: KakaoPlace[], status: string) => {
       if (status !== window.kakao.maps.services.Status.OK) return;
 
       const enriched: EnrichedToilet[] = await Promise.all(
@@ -196,7 +195,7 @@ export default function MapView() {
 
   useEffect(() => {
     if (mapRef.current) renderMarkers(filteredToilets);
-  }, [selectedFilters]);
+  }, [selectedFilters, renderMarkers]);
 
   return (
     <div className="map-wrapper">

@@ -14,15 +14,15 @@ export default function FavoritePage() {
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: unknown) => {
         if (Array.isArray(data)) {
-          setFavorites(data);
+          setFavorites(data as Toilet[]);
         } else {
           console.error('❌ favorites가 배열이 아닙니다:', data);
           setFavorites([]);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('❌ 즐겨찾기 불러오기 실패:', err);
       });
   }, []);
