@@ -2,6 +2,27 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
 
+interface Review {
+  user: string;
+  comment: string;
+}
+
+interface Toilet {
+  id: string;
+  place_name: string;
+  address_name: string;
+  road_address_name: string;
+  x: string;
+  y: string;
+  keywords: string[];
+  reviews: Review[];
+  cleanliness: number;
+  facility: number;
+  convenience: number;
+  overallRating: number;
+  [key: string]: any; // MongoDB 내부 필드(_id 등)를 허용하기 위해 유지
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id, place_name: rawPlaceName = '이름 미정' } = req.query;
   const place_name = Array.isArray(rawPlaceName) ? rawPlaceName[0] : rawPlaceName;
@@ -11,25 +32,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const db = (await connectDB).db('toilet_app');
-  interface Toilet {
-    id: string;
-    place_name: string;
-    address_name: string;
-    road_address_name: string;
-    x: string;
-    y: string;
-    keywords: any[];
-    reviews: any[];
-    cleanliness: number;
-    facility: number;
-    convenience: number;
-    overallRating: number;
-    [key: string]: any;
-  }
+  let toilet = await db.collection<Toilet>('toilets').findOne({ id });
 
-  let toilet = await db.collection('toilets').findOne<Toilet>({ id });
-
-  // 📌 없으면 새로 등록
   if (!toilet) {
     const newToilet: Toilet = {
       id,
@@ -47,12 +51,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     await db.collection('toilets').insertOne(newToilet);
-    toilet = await db.collection('toilets').findOne<Toilet>({ id });
+    toilet = await db.collection<Toilet>('toilets').findOne({ id });
   }
 
-  const parseDecimal = (v: any): number | undefined => {
-    if (typeof v === 'object' && v?.$numberDecimal) {
-      return parseFloat(v.$numberDecimal);
+  const parseDecimal = (v: unknown): number | undefined => {
+    if (typeof v === 'object' && v !== null && '$numberDecimal' in v) {
+      return parseFloat((v as { $numberDecimal: string }).$numberDecimal);
     }
     return typeof v === 'number' ? v : undefined;
   };
