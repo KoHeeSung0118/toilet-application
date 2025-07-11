@@ -7,10 +7,8 @@ import { useToilet } from '@/context/ToiletContext';
 import { useSearchParams } from 'next/navigation';
 
 declare global {
-  // kakao map library does not provide TypeScript types
   interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    kakao: any;
+    kakao: any; // Kakao map은 공식 타입 제공 안 됨
   }
 }
 
@@ -48,6 +46,16 @@ interface EnrichedToilet extends KakaoPlace {
 interface KakaoMap {
   setCenter: (latlng: unknown) => void;
   panTo: (latlng: unknown) => void;
+}
+
+// ✅ 타입 가드 함수
+function isValidReview(r: unknown): r is { user: string; comment: string } {
+  return (
+    typeof r === 'object' &&
+    r !== null &&
+    typeof (r as Record<string, unknown>).user === 'string' &&
+    typeof (r as Record<string, unknown>).comment === 'string'
+  );
 }
 
 export default function MapView() {
@@ -104,20 +112,16 @@ export default function MapView() {
     geocoder.addressSearch(
       keyword,
       (
-      result: Array<{
-        x: string;
-        y: string;
-        [key: string]: unknown;
-      }>,
-      status: string
+        result: Array<{ x: string; y: string }>,
+        status: string
       ) => {
-      if (status === window.kakao.maps.services.Status.OK) {
-        const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
-        (mapRef.current as KakaoMap).setCenter(coords);
-        searchToilets(Number(result[0].y), Number(result[0].x));
-      } else {
-        alert('검색 결과가 없습니다.');
-      }
+        if (status === window.kakao.maps.services.Status.OK) {
+          const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
+          (mapRef.current as KakaoMap).setCenter(coords);
+          searchToilets(Number(result[0].y), Number(result[0].x));
+        } else {
+          alert('검색 결과가 없습니다.');
+        }
       }
     );
   };
@@ -132,14 +136,12 @@ export default function MapView() {
     toilets.forEach((place) => {
       const position = new window.kakao.maps.LatLng(place.y, place.x);
 
-      // ✅ 마커 이미지 설정
       const markerImage = new window.kakao.maps.MarkerImage(
         '/marker/toilet-icon.png',
         new window.kakao.maps.Size(40, 40),
         { offset: new window.kakao.maps.Point(20, 40) }
       );
 
-      // ✅ 이미지 마커로 생성
       const marker = new window.kakao.maps.Marker({
         map: mapRef.current as unknown as KakaoMap,
         position,
@@ -151,17 +153,18 @@ export default function MapView() {
       const content = document.createElement('div');
       content.className = 'custom-overlay-box';
       content.innerHTML = `
-      <div class="custom-overlay">
-        <button class="custom-close-btn" title="닫기">&times;</button>
-        <div class="info-title">${place.place_name}</div>
-        <div class="info-rating">${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})</div>
-        ${place.keywords.length
-          ? `<div class="info-keywords">${place.keywords.map((kw: string) => `<span>#${kw}</span>`).join(' ')}</div>`
-          : ''
-        }
-        <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}">자세히 보기</a>
-      </div>
-    `;
+        <div class="custom-overlay">
+          <button class="custom-close-btn" title="닫기">&times;</button>
+          <div class="info-title">${place.place_name}</div>
+          <div class="info-rating">${'★'.repeat(Math.round(place.overallRating)).padEnd(5, '☆')} (${place.overallRating.toFixed(1)})</div>
+          ${
+            place.keywords.length
+              ? `<div class="info-keywords">${place.keywords.map((kw: string) => `<span>#${kw}</span>`).join(' ')}</div>`
+              : ''
+          }
+          <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}">자세히 보기</a>
+        </div>
+      `;
 
       const overlay = new window.kakao.maps.CustomOverlay({
         content,
@@ -186,62 +189,53 @@ export default function MapView() {
     setMarkers(newMarkers);
   };
 
-
   const searchToilets = async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
 
     ps.keywordSearch(
       '화장실',
-      async (
-      data: KakaoPlace[],
-      status: string
-      ) => {
-      if (status !== window.kakao.maps.services.Status.OK) return;
+      async (data: KakaoPlace[], status: string) => {
+        if (status !== window.kakao.maps.services.Status.OK) return;
 
-      const enriched: EnrichedToilet[] = await Promise.all(
-        data.map(async (place: KakaoPlace): Promise<EnrichedToilet> => {
-        try {
-          const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
-          if (!res.ok) throw new Error();
-          const dbData: ToiletDbData = await res.json();
-          return {
-          ...place,
-          overallRating: dbData.overallRating ?? 3,
-          reviews: dbData.reviews ?? [],
-          keywords: dbData.keywords ?? [],
-          };
-        } catch {
-          return {
-          ...place,
-          overallRating: 3,
-          reviews: [],
-          keywords: [],
-          };
-        }
-        })
-      );
+        const enriched: EnrichedToilet[] = await Promise.all(
+          data.map(async (place) => {
+            try {
+              const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
+              if (!res.ok) throw new Error();
+              const dbData: ToiletDbData = await res.json();
+              return {
+                ...place,
+                overallRating: dbData.overallRating ?? 3,
+                reviews: dbData.reviews ?? [],
+                keywords: dbData.keywords ?? [],
+              };
+            } catch {
+              return {
+                ...place,
+                overallRating: 3,
+                reviews: [],
+                keywords: [],
+              };
+            }
+          })
+        );
 
-      setToiletList(
-        enriched.map((toilet) => ({
-          ...toilet,
-          reviews: Array.isArray(toilet.reviews)
-            ? toilet.reviews.filter(
-                (r): r is { user: string; comment: string } =>
-                  typeof r === 'object' &&
-                  r !== null &&
-                  typeof (r as any).user === 'string' &&
-                  typeof (r as any).comment === 'string'
-              )
-            : []
-        }))
-      );
-      localStorage.setItem('toiletList', JSON.stringify(enriched));
-      setAllToilets(enriched);
-      renderMarkers(enriched);
+        setToiletList(
+          enriched.map((toilet) => ({
+            ...toilet,
+            reviews: Array.isArray(toilet.reviews)
+              ? toilet.reviews.filter(isValidReview)
+              : [],
+          }))
+        );
+
+        localStorage.setItem('toiletList', JSON.stringify(enriched));
+        setAllToilets(enriched);
+        renderMarkers(enriched);
       },
       {
-      location: new window.kakao.maps.LatLng(lat, lng),
-      radius: 20000,
+        location: new window.kakao.maps.LatLng(lat, lng),
+        radius: 20000,
       }
     );
   };
@@ -249,8 +243,8 @@ export default function MapView() {
   const filteredToilets = selectedFilters.length === 0
     ? allToilets
     : allToilets.filter((t) =>
-      selectedFilters.every((kw) => t.keywords?.includes(kw))
-    );
+        selectedFilters.every((kw) => t.keywords?.includes(kw))
+      );
 
   useEffect(() => {
     if (mapRef.current) {
