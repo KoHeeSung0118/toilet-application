@@ -6,9 +6,20 @@ import Link from 'next/link';
 import '../list/ToiletList.css';
 import './FavoritePage.css';
 
+interface Toilet {
+  id: string;
+  place_name: string;
+  overallRating?: number;
+  reviews?: {
+    comment: string;
+    [key: string]: any;
+  }[];
+}
+
 export default function FavoritePage() {
-  const [favorites, setFavorites] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<Toilet[]>([]);
   const [removingIds, setRemovingIds] = useState<string[]>([]);
+
 
   useEffect(() => {
     fetch('/api/favorite/list', { credentials: 'include' })
