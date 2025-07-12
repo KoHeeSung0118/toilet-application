@@ -46,54 +46,6 @@ export default function MapView() {
   const searchParams = useSearchParams();
   const queryKeyword = searchParams?.get('query');
 
-  const initMap = useCallback((lat: number, lng: number) => {
-    const container = document.getElementById('map');
-    if (!container) return;
-
-    const map = new window.kakao.maps.Map(container, {
-      center: new window.kakao.maps.LatLng(lat, lng),
-      level: 3,
-    });
-
-    mapRef.current = map;
-    searchToilets(lat, lng);
-  }, []);
-
-  const handleQuerySearch = useCallback((keyword: string) => {
-    const geocoder = new window.kakao.maps.services.Geocoder();
-    geocoder.addressSearch(keyword, (result: kakao.maps.services.GeocoderResult[], status: kakao.maps.services.Status) => {
-      if (status === window.kakao.maps.services.Status.OK) {
-        const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
-        mapRef.current?.setCenter(coords);
-        searchToilets(Number(result[0].y), Number(result[0].x));
-      } else {
-        alert('검색 결과가 없습니다.');
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services`;
-    script.async = true;
-    document.head.appendChild(script);
-
-    script.onload = () => {
-      window.kakao.maps.load(() => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            initMap(pos.coords.latitude, pos.coords.longitude);
-            if (queryKeyword) handleQuerySearch(queryKeyword);
-          },
-          () => {
-            initMap(37.5665, 126.9780);
-            if (queryKeyword) handleQuerySearch(queryKeyword);
-          }
-        );
-      });
-    };
-  }, [handleQuerySearch, initMap, queryKeyword]);
-
   const renderMarkers = useCallback((toilets: EnrichedToilet[]) => {
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
@@ -149,7 +101,7 @@ export default function MapView() {
     markersRef.current = newMarkers;
   }, []);
 
-  const searchToilets = async (lat: number, lng: number) => {
+  const searchToilets = useCallback(async (lat: number, lng: number) => {
     const ps = new window.kakao.maps.services.Places();
 
     ps.keywordSearch('화장실', async (data: KakaoPlace[], status: kakao.maps.services.Status) => {
@@ -180,7 +132,55 @@ export default function MapView() {
       location: new window.kakao.maps.LatLng(lat, lng),
       radius: 20000,
     });
-  };
+  }, [renderMarkers, setToiletList]);
+
+  const initMap = useCallback((lat: number, lng: number) => {
+    const container = document.getElementById('map');
+    if (!container) return;
+
+    const map = new window.kakao.maps.Map(container, {
+      center: new window.kakao.maps.LatLng(lat, lng),
+      level: 3,
+    });
+
+    mapRef.current = map;
+    searchToilets(lat, lng);
+  }, [searchToilets]);
+
+  const handleQuerySearch = useCallback((keyword: string) => {
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    geocoder.addressSearch(keyword, (result, status) => {
+      if (status === window.kakao.maps.services.Status.OK) {
+        const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
+        mapRef.current?.setCenter(coords);
+        searchToilets(Number(result[0].y), Number(result[0].x));
+      } else {
+        alert('검색 결과가 없습니다.');
+      }
+    });
+  }, [searchToilets]);
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services`;
+    script.async = true;
+    document.head.appendChild(script);
+
+    script.onload = () => {
+      window.kakao.maps.load(() => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            initMap(pos.coords.latitude, pos.coords.longitude);
+            if (queryKeyword) handleQuerySearch(queryKeyword);
+          },
+          () => {
+            initMap(37.5665, 126.9780);
+            if (queryKeyword) handleQuerySearch(queryKeyword);
+          }
+        );
+      });
+    };
+  }, [handleQuerySearch, initMap, queryKeyword]);
 
   const filteredToilets = selectedFilters.length === 0
     ? allToilets
