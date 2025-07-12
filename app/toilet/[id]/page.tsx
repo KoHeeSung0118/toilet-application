@@ -21,11 +21,6 @@ interface Toilet {
   overallRating?: number;
 }
 
-interface PageProps {
-  params: { id: string };
-  searchParams: { place_name?: string; from?: string };
-}
-
 const getRatingStatus = (score?: number): string => {
   if (score === undefined || score === null) return '정보 없음';
   if (score >= 4) return '좋음';
@@ -33,7 +28,7 @@ const getRatingStatus = (score?: number): string => {
   return '나쁨';
 };
 
-const ToiletDetailPage = async ({ params, searchParams }: PageProps) => {
+export default async function ToiletDetailPage({ params, searchParams }: any) {
   const placeName = searchParams.place_name ?? '';
   const from = searchParams.from ?? '';
   const currentUserId = await getUserIdFromToken();
@@ -123,6 +118,4 @@ const ToiletDetailPage = async ({ params, searchParams }: PageProps) => {
       </a>
     </div>
   );
-};
-
-export default ToiletDetailPage;
+}
