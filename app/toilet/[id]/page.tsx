@@ -21,6 +21,11 @@ interface Toilet {
   overallRating?: number;
 }
 
+interface PageProps {
+  params: { id: string };
+  searchParams: { place_name?: string; from?: string };
+}
+
 const getRatingStatus = (score?: number): string => {
   if (score === undefined || score === null) return '정보 없음';
   if (score >= 4) return '좋음';
@@ -28,13 +33,7 @@ const getRatingStatus = (score?: number): string => {
   return '나쁨';
 };
 
-export default async function ToiletDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { place_name?: string; from?: string };
-}) {
+export default async function ToiletDetailPage({ params, searchParams }: PageProps) {
   const placeName = searchParams.place_name ?? '';
   const from = searchParams.from ?? '';
   const currentUserId = await getUserIdFromToken();
@@ -97,7 +96,7 @@ export default async function ToiletDetailPage({
             .sort((a, b) => {
               const timeA = new Date(a.createdAt).getTime();
               const timeB = new Date(b.createdAt).getTime();
-              return timeB - timeA; // 최신순 정렬
+              return timeB - timeA;
             })
             .map((review) => (
               <div key={review._id} className="comment-item">
