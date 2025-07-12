@@ -4,28 +4,21 @@ import FavoriteButton from '@/components/favorite/FavoriteButton';
 import ClientOnlyBackButton from '@/components/detail/ClientOnlyBackButton';
 import { getUserIdFromToken } from '@/lib/getUserIdFromToken';
 
-interface Review {
-  _id: string;
-  userId: string;
-  nickname: string;
-  comment: string;
-  createdAt: string | Date;
-}
-
 interface Toilet {
   _id: string;
   place_name: string;
   keywords?: string[];
-  reviews?: Review[];
+  reviews?: {
+    _id: string;
+    userId: string;
+    nickname: string;
+    comment: string;
+    createdAt: string | Date;
+  }[];
   cleanliness?: number;
   facility?: number;
   convenience?: number;
   overallRating?: number;
-}
-
-interface PageParams {
-  params: { id: string };
-  searchParams: { place_name?: string; from?: string };
 }
 
 const getRatingStatus = (score?: number): string => {
@@ -35,7 +28,9 @@ const getRatingStatus = (score?: number): string => {
   return '나쁨';
 };
 
-export default async function ToiletDetailPage({ params, searchParams }: PageParams) {
+export default async function ToiletDetailPage(
+  { params, searchParams }: { params: { id: string }, searchParams: { place_name?: string; from?: string } }
+) {
   const placeName = searchParams.place_name ?? '';
   const from = searchParams.from ?? '';
   const currentUserId = await getUserIdFromToken();
@@ -98,7 +93,7 @@ export default async function ToiletDetailPage({ params, searchParams }: PagePar
             .sort((a, b) => {
               const timeA = new Date(a.createdAt).getTime();
               const timeB = new Date(b.createdAt).getTime();
-              return timeB - timeA;
+              return timeB - timeA; // 최신순 정렬
             })
             .map((review) => (
               <div key={review._id} className="comment-item">
