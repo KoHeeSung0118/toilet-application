@@ -33,7 +33,7 @@ const getRatingStatus = (score?: number): string => {
   return '나쁨';
 };
 
-export default async function ToiletDetailPage({ params, searchParams }: PageProps) {
+const ToiletDetailPage = async ({ params, searchParams }: PageProps) => {
   const placeName = searchParams.place_name ?? '';
   const from = searchParams.from ?? '';
   const currentUserId = await getUserIdFromToken();
@@ -123,4 +123,6 @@ export default async function ToiletDetailPage({ params, searchParams }: PagePro
       </a>
     </div>
   );
-}
+};
+
+export default ToiletDetailPage;
