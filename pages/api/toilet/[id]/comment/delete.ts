@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
 import jwt from 'jsonwebtoken';
+import type { UpdateFilter } from 'mongodb';   // 추가 ✨
 
 interface Review {
   _id: string;
@@ -46,16 +47,14 @@ export default async function handler(
   const db = (await connectDB).db('toilet_app');
   const toilets = db.collection<ToiletDoc>('toilets');
 
-  /* 4. 댓글 삭제 */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await toilets.updateOne(
-    { id: toiletId },
-    {
-      $pull: {
-        reviews: { _id: commentId, userId },
-      },
-    } as any
-  );
+  /* 4. 댓글 삭제 ― 정확한 타입으로 $pull */
+  const pullFilter: UpdateFilter<ToiletDoc> = {
+    $pull: {
+      reviews: { _id: commentId, userId },
+    },
+  };
+
+  const result = await toilets.updateOne({ id: toiletId }, pullFilter);
 
   if (result.modifiedCount === 0) {
     return res
