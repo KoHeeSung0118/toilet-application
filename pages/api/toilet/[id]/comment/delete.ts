@@ -20,7 +20,7 @@ export default async function handler(
     return res.status(405).json({ message: 'POST 요청만 허용됩니다.' });
   }
 
-  /* JWT */
+  /* 1. JWT */
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: '로그인 필요' });
 
@@ -35,25 +35,26 @@ export default async function handler(
     return res.status(401).json({ message: '유효하지 않은 토큰' });
   }
 
-  /* 파라미터 */
+  /* 2. 파라미터 */
   const { commentId } = req.body;
   const toiletId = req.query.id as string;
   if (!commentId || !toiletId) {
     return res.status(400).json({ message: '필수 항목 누락' });
   }
 
-  /* DB */
+  /* 3. DB */
   const db = (await connectDB).db('toilet_app');
   const toilets = db.collection<ToiletDoc>('toilets');
 
-  /* $pull */
+  /* 4. 댓글 삭제 */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = await toilets.updateOne(
     { id: toiletId },
     {
       $pull: {
         reviews: { _id: commentId, userId },
       },
-    } as any // ← MongoDB 타입 제약 우회
+    } as any
   );
 
   if (result.modifiedCount === 0) {
