@@ -10,35 +10,47 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /* ───────── 핸들러 ───────── */
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
+    setLoading(true);
 
-    const res = await fetch('/api/post/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        email,
-        password,
-        remember: remember ? 'on' : 'off',
-      }),
-    });
+    try {
+      const res = await fetch('/api/post/login', {   // ✅ 실제 라우트 경로
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email,
+          password,
+          remember: remember ? 'on' : 'off',
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-    if (res.ok) {
-      alert(data.message); // 로그인 성공
-      router.push('/');
-    } else {
-      alert(data.message); // 실패 이유 출력
-      router.push('/signup');
+      if (res.ok) {
+        alert(data.message ?? '로그인 성공');
+        router.replace('/');                         // ✅ 홈 이동
+      } else {
+        alert(data.message ?? '로그인 실패');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('네트워크 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);                             // ✅ 항상 loading 해제
     }
-  };
+  }
 
+  /* ───────── UI ───────── */
   return (
     <div className="login-wrapper">
       <h1 className="login-title">로그인</h1>
+
       <form onSubmit={handleSubmit} className="login-form">
         <input
           type="email"
@@ -46,18 +58,20 @@ export default function LoginPage() {
           placeholder="이메일"
           className="login-input"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
           required
         />
+
         <input
           type="password"
           name="password"
           placeholder="비밀번호"
           className="login-input"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={e => setPassword(e.target.value)}
           required
         />
+
         <label className="login-checkbox">
           <input
             type="checkbox"
@@ -67,7 +81,10 @@ export default function LoginPage() {
           />
           로그인 정보 저장
         </label>
-        <button type="submit" className="login-button">로그인</button>
+
+        <button type="submit" className="login-button" disabled={loading}>
+          {loading ? '로딩 중...' : '로그인'}
+        </button>
       </form>
 
       <Link href="/signup" className="login-button link-button">
