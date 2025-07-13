@@ -6,6 +6,7 @@ import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
 import { useSearchParams } from 'next/navigation';
 
+/* ───────── 상수 & 타입 ───────── */
 const FILTERS = [
   '화장실 칸 많음',
   '화장실 칸 적음',
@@ -23,198 +24,217 @@ interface KakaoPlace {
   x: string;
   y: string;
 }
-
 interface ToiletDbData {
   overallRating?: number;
   reviews?: { user: string; comment: string }[];
   keywords?: string[];
 }
-
 interface EnrichedToilet extends KakaoPlace {
   overallRating: number;
   reviews: { user: string; comment: string }[];
   keywords: string[];
 }
 
+/* ───────── 컴포넌트 ───────── */
 export default function MapView() {
   const { setToiletList } = useToilet();
-  const mapRef = useRef<kakao.maps.Map | null>(null);
+
+  const mapRef     = useRef<kakao.maps.Map | null>(null);
   const markersRef = useRef<kakao.maps.Marker[]>([]);
+
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [allToilets, setAllToilets] = useState<EnrichedToilet[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [allToilets,     setAllToilets]     = useState<EnrichedToilet[]>([]);
+  const [showFilters,    setShowFilters]    = useState(false);
+
   const searchParams = useSearchParams();
   const queryKeyword = searchParams?.get('query');
 
+  /* ───────── 마커 렌더 ───────── */
   const renderMarkers = useCallback((toilets: EnrichedToilet[]) => {
-    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
+    /* ✅ 현재 열린 오버레이를 저장 */
     let currentOverlay: kakao.maps.CustomOverlay | null = null;
-    const newMarkers: kakao.maps.Marker[] = [];
 
-    toilets.forEach((place) => {
-      const position = new window.kakao.maps.LatLng(Number(place.y), Number(place.x));
-      const marker = new window.kakao.maps.Marker({
+    toilets.forEach(place => {
+      const pos = new kakao.maps.LatLng(+place.y, +place.x);
+      const marker = new kakao.maps.Marker({
         map: mapRef.current!,
-        position,
-        image: new window.kakao.maps.MarkerImage(
+        position: pos,
+        image: new kakao.maps.MarkerImage(
           '/marker/toilet-icon.png',
-          new window.kakao.maps.Size(40, 40),
+          new kakao.maps.Size(40, 40)
         ),
       });
+      markersRef.current.push(marker);
 
-      newMarkers.push(marker);
-
-      const content = document.createElement('div');
-      content.className = 'custom-overlay-box';
-      content.innerHTML = `
+      const html = `
         <div class="custom-overlay">
           <button class="custom-close-btn">&times;</button>
           <div class="info-title">${place.place_name}</div>
           <div class="info-rating">★ ${place.overallRating.toFixed(1)}</div>
-          <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}">자세히 보기</a>
-        </div>
-      `;
+          <div class="info-keywords">
+            ${place.keywords.map(k => `<span>#${k}</span>`).join('')}
+          </div>
+          <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(
+            place.place_name
+          )}">자세히 보기</a>
+        </div>`;
 
-      const overlay = new window.kakao.maps.CustomOverlay({
+      const content = Object.assign(document.createElement('div'), { innerHTML: html });
+      const overlay = new kakao.maps.CustomOverlay({
         content,
-        position,
+        position: pos,
         xAnchor: 0.5,
         yAnchor: 1.1,
       });
 
-      window.kakao.maps.event.addListener(marker, 'click', () => {
-        mapRef.current?.panTo(position);
-        currentOverlay?.setMap(null);
+      kakao.maps.event.addListener(marker, 'click', () => {
+        /* 🔒 다른 오버레이가 열려 있으면 닫기 */
+        if (currentOverlay && currentOverlay !== overlay) {
+          currentOverlay.setMap(null);
+        }
+
+        mapRef.current?.panTo(pos);
         overlay.setMap(mapRef.current);
         currentOverlay = overlay;
 
-        setTimeout(() => {
-          content.querySelector('.custom-close-btn')?.addEventListener('click', () => {
+        /* X 버튼으로 직접 닫을 때 상태 초기화 */
+        content
+          .querySelector('.custom-close-btn')
+          ?.addEventListener('click', () => {
             overlay.setMap(null);
+            if (currentOverlay === overlay) currentOverlay = null;
           });
-        }, 50);
       });
     });
-
-    markersRef.current = newMarkers;
   }, []);
 
-  const searchToilets = useCallback(async (lat: number, lng: number) => {
-    const ps = new window.kakao.maps.services.Places();
+  /* ───────── 화장실 검색 & 병합 ───────── */
+  const searchToilets = useCallback(
+    async (lat: number, lng: number) => {
+      const ps = new kakao.maps.services.Places();
 
-    ps.keywordSearch('화장실', async (data: KakaoPlace[], status: kakao.maps.services.Status) => {
-      if (status !== window.kakao.maps.services.Status.OK) return;
+      ps.keywordSearch(
+        '화장실',
+        async (data, status) => {
+          if (status !== kakao.maps.services.Status.OK) return;
 
-      const enriched: EnrichedToilet[] = await Promise.all(
-        data.map(async (place) => {
-          try {
-            const res = await fetch(`/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`);
-            const dbData: ToiletDbData = await res.json();
-            return {
-              ...place,
-              overallRating: dbData.overallRating ?? 3,
-              reviews: dbData.reviews ?? [],
-              keywords: dbData.keywords ?? [],
-            };
-          } catch {
-            return { ...place, overallRating: 3, reviews: [], keywords: [] };
-          }
-        })
+          const enriched = await Promise.all(
+            data.map(async place => {
+              const res = await fetch(`/api/toilet/${place.id}`);
+              const db  = (await res.json()) as ToiletDbData;
+              return {
+                ...place,
+                overallRating: db.overallRating ?? 3,
+                reviews:       db.reviews       ?? [],
+                keywords:      db.keywords      ?? [],
+              };
+            })
+          );
+
+          setToiletList(enriched);
+          localStorage.setItem('toiletList', JSON.stringify(enriched));
+          setAllToilets(enriched);
+          renderMarkers(enriched);
+        },
+        { location: new kakao.maps.LatLng(lat, lng), radius: 20000 }
       );
+    },
+    [renderMarkers, setToiletList]
+  );
 
-      setToiletList(enriched);
-      localStorage.setItem('toiletList', JSON.stringify(enriched));
-      setAllToilets(enriched);
-      renderMarkers(enriched);
-    }, {
-      location: new window.kakao.maps.LatLng(lat, lng),
-      radius: 20000,
-    });
-  }, [renderMarkers, setToiletList]);
-
-  const initMap = useCallback((lat: number, lng: number) => {
-    const container = document.getElementById('map');
-    if (!container) return;
-
-    const map = new window.kakao.maps.Map(container, {
-      center: new window.kakao.maps.LatLng(lat, lng),
-      level: 3,
-    });
-
-    mapRef.current = map;
-    searchToilets(lat, lng);
-  }, [searchToilets]);
-
-  const handleQuerySearch = useCallback((keyword: string) => {
-    const geocoder = new window.kakao.maps.services.Geocoder();
-    geocoder.addressSearch(keyword, (result, status) => {
-      if (status === window.kakao.maps.services.Status.OK) {
-        const coords = new window.kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
-        mapRef.current?.setCenter(coords);
-        searchToilets(Number(result[0].y), Number(result[0].x));
-      } else {
-        alert('검색 결과가 없습니다.');
-      }
-    });
-  }, [searchToilets]);
-
+  /* ───────── 지도 초기화 & SDK 로드 ───────── */
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services`;
-    script.async = true;
-    document.head.appendChild(script);
+    const s = document.createElement('script');
+    s.src =
+      'https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services';
+    s.async = true;
+    document.head.appendChild(s);
 
-    script.onload = () => {
-      window.kakao.maps.load(() => {
+    s.onload = () => {
+      kakao.maps.load(() => {
+        const fallback = () => {
+          const lat = 37.5665, lng = 126.9780;
+          mapRef.current = new kakao.maps.Map(
+            document.getElementById('map')!,
+            { center: new kakao.maps.LatLng(lat, lng), level: 3 }
+          );
+          searchToilets(lat, lng);
+          if (queryKeyword) handleQuerySearch(queryKeyword);
+        };
+
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            initMap(pos.coords.latitude, pos.coords.longitude);
+          pos => {
+            const { latitude, longitude } = pos.coords;
+            mapRef.current = new kakao.maps.Map(
+              document.getElementById('map')!,
+              { center: new kakao.maps.LatLng(latitude, longitude), level: 3 }
+            );
+            searchToilets(latitude, longitude);
             if (queryKeyword) handleQuerySearch(queryKeyword);
           },
-          () => {
-            initMap(37.5665, 126.9780);
-            if (queryKeyword) handleQuerySearch(queryKeyword);
-          }
+          fallback
         );
       });
     };
-  }, [handleQuerySearch, initMap, queryKeyword]);
+  }, [queryKeyword, searchToilets]);
 
-  const filteredToilets = selectedFilters.length === 0
-    ? allToilets
-    : allToilets.filter((t) =>
-        selectedFilters.every((kw) => t.keywords.includes(kw))
-      );
+  /* ───────── 주소 검색 ───────── */
+  const handleQuerySearch = useCallback(
+    (keyword: string) => {
+      const geocoder = new kakao.maps.services.Geocoder();
+      geocoder.addressSearch(keyword, (result, status) => {
+        if (status === kakao.maps.services.Status.OK) {
+          const { y, x } = result[0];
+          const coords = new kakao.maps.LatLng(+y, +x);
+          mapRef.current?.setCenter(coords);
+          searchToilets(+y, +x);
+        } else {
+          alert('검색 결과가 없습니다.');
+        }
+      });
+    },
+    [searchToilets]
+  );
+
+  /* ───────── 필터 적용 시 마커 갱신 ───────── */
+  const filtered = selectedFilters.length
+    ? allToilets.filter(t =>
+        selectedFilters.every(f => t.keywords.includes(f))
+      )
+    : allToilets;
 
   useEffect(() => {
-    if (mapRef.current) {
-      renderMarkers(filteredToilets);
-    }
-  }, [filteredToilets, renderMarkers]);
+    if (mapRef.current) renderMarkers(filtered);
+  }, [filtered, renderMarkers]);
 
+  /* ───────── UI ───────── */
   return (
     <div className="map-wrapper">
       <Header />
+
       <div className="top-ui">
         <button
           className="toggle-filter-btn"
-          onClick={() => setShowFilters((prev) => !prev)}
+          onClick={() => setShowFilters(p => !p)}
         >
           {showFilters ? '키워드 숨기기' : '키워드 보기'}
         </button>
 
         {showFilters && (
           <div className="keyword-filter">
-            {FILTERS.map((filter) => (
+            {FILTERS.map(filter => (
               <button
                 key={filter}
-                className={`filter-btn ${selectedFilters.includes(filter) ? 'active' : ''}`}
+                className={`filter-btn ${
+                  selectedFilters.includes(filter) ? 'active' : ''
+                }`}
                 onClick={() =>
-                  setSelectedFilters((prev) =>
+                  setSelectedFilters(prev =>
                     prev.includes(filter)
-                      ? prev.filter((f) => f !== filter)
+                      ? prev.filter(f => f !== filter)
                       : [...prev, filter]
                   )
                 }
@@ -225,6 +245,7 @@ export default function MapView() {
           </div>
         )}
       </div>
+
       <div id="map" className="map-container" />
     </div>
   );
