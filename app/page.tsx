@@ -1,12 +1,16 @@
-// ✅ app/page.tsx  또는 app/(root)/page.tsx
-"use client";                                  // ← 한 줄 추가
+// app/page.tsx
+"use client";
 
-import MapView from "@/components/map/MapView";
+import { Suspense } from "react";
+import MapView from "@/components/map/MapView";   // ← MapView는 이미 "use client" 선언
 
 export default function Mainpage() {
   return (
     <div className="bottombar">
-      <MapView />
+      {/* CSR-bailout이 제대로 동작하도록 Suspense로 감쌉니다 */}
+      <Suspense fallback={null}>
+        <MapView />
+      </Suspense>
     </div>
   );
 }
