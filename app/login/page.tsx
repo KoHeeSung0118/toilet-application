@@ -1,16 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import './LoginForm.css';
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
 
   /* ───────── 핸들러 ───────── */
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -19,7 +17,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/post/login', {   // ✅ 실제 라우트 경로
+      const res = await fetch('/api/post/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -34,7 +32,8 @@ export default function LoginPage() {
 
       if (res.ok) {
         alert(data.message ?? '로그인 성공');
-        router.replace('/');                         // ✅ 홈 이동
+        /* ✅ 탑-레벨 리다이렉션 → 쿠키가 확실히 전송됨 */
+        window.location.href = '/';
       } else {
         alert(data.message ?? '로그인 실패');
       }
@@ -42,7 +41,7 @@ export default function LoginPage() {
       console.error(err);
       alert('네트워크 오류가 발생했습니다.');
     } finally {
-      setLoading(false);                             // ✅ 항상 loading 해제
+      setLoading(false);
     }
   }
 
@@ -77,7 +76,7 @@ export default function LoginPage() {
             type="checkbox"
             name="remember"
             checked={remember}
-            onChange={() => setRemember(!remember)}
+            onChange={() => setRemember(prev => !prev)}
           />
           로그인 정보 저장
         </label>
