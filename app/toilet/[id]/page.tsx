@@ -1,123 +1,58 @@
-import './DetailPage.css';
-import DeleteCommentButton from '@/components/detail/DeleteCommentButton';
-import FavoriteButton from '@/components/favorite/FavoriteButton';
-import ClientOnlyBackButton from '@/components/detail/ClientOnlyBackButton';
-import { getUserIdFromToken } from '@/lib/getUserIdFromToken';
+// ✅ app/toilet/[id]/page.tsx
+import ToiletDetailPage from '@/components/detail/ToiletDetailPage';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
+import { notFound } from 'next/navigation';
 
-interface Toilet {
-  _id: string;
-  place_name: string;
-  keywords?: string[];
-  reviews?: {
-    _id: string;
-    userId: string;
-    nickname: string;
-    comment: string;
-    createdAt: string | Date;
-  }[];
-  cleanliness?: number;
-  facility?: number;
-  convenience?: number;
-  overallRating?: number;
-}
-
-const getRatingStatus = (score?: number): string => {
-  if (score === undefined || score === null) return '정보 없음';
-  if (score >= 4) return '좋음';
-  if (score >= 2.5) return '보통';
-  return '나쁨';
+/** 내부 전용 타입 ― export 금지! */
+type ToiletPageProps = {
+  params: { id: string };
+  searchParams?: {
+    place_name?: string;
+    from?: string;
+  };
 };
 
-export default async function ToiletDetailPage(
-  { params, searchParams }: { params: { id: string }, searchParams: { place_name?: string; from?: string } }
-) {
-  const placeName = searchParams.place_name ?? '';
-  const from = searchParams.from ?? '';
-  const currentUserId = await getUserIdFromToken();
+export default async function Page({
+  params,
+  searchParams,
+}: ToiletPageProps) {
+  /* 1) 쿠키 스토어 얻기 ― Next.js 15부터 cookies()가 Promise 반환 */
+  const cookieStore = await cookies();
+  const token = cookieStore.get('token')?.value;
+  let currentUserId: string | null = null;
 
+  /* 2) JWT 파싱 */
+  if (token) {
+    try {
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+      ) as { userId: string };
+      currentUserId = decoded.userId;
+    } catch (e) {
+      console.error('JWT Decode Error:', e);
+    }
+  }
+
+  /* 3) 화장실 데이터 요청 */
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/toilet/${params.id}?place_name=${encodeURIComponent(placeName)}`,
+    `${process.env.NEXT_PUBLIC_SITE_URL}/api/toilet/${params.id}` +
+      `?place_name=${encodeURIComponent(searchParams?.place_name ?? '')}`,
     { cache: 'no-store' }
   );
 
-  if (!res.ok) {
-    return <p>화장실 정보를 찾을 수 없습니다.</p>;
-  }
+  if (!res.ok) return notFound();
+  const toilet = await res.json();
 
-  const toilet: Toilet = await res.json();
-  const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
-  const encodedName = encodeURIComponent(toilet.place_name || '이름 없음');
-
+  /* 4) 상세 페이지 렌더링 */
   return (
-    <div className="detail-page">
-      <ClientOnlyBackButton />
-
-      <div className="detail-header">
-        <div className="favorite-wrapper">
-          <FavoriteButton toiletId={params.id} placeName={toilet.place_name} />
-        </div>
-        <h2>{toilet.place_name || '이름 없음'}</h2>
-        <div className="rating">
-          {'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})
-        </div>
-        <div className="btn-group">
-          <a href={`/toilet/${params.id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
-            키워드 추가하기
-          </a>
-          <a href={`/toilet/${params.id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
-            별점 추가하기
-          </a>
-        </div>
-      </div>
-
-      <div className="tags-box">
-        <div>청결: {getRatingStatus(toilet.cleanliness)}</div>
-        <div>시설: {getRatingStatus(toilet.facility)}</div>
-        <div>편의: {getRatingStatus(toilet.convenience)}</div>
-      </div>
-
-      {toilet.keywords?.length ? (
-        <div className="keyword-box">
-          {toilet.keywords.map((kw, idx) => (
-            <span key={idx} className="tag">#{kw}</span>
-          ))}
-        </div>
-      ) : (
-        <p style={{ marginTop: '1rem' }}>등록된 키워드가 없습니다.</p>
-      )}
-
-      <div className="reviews">
-        <h3>댓글</h3>
-        {(toilet.reviews?.length ?? 0) > 0 ? (
-          [...toilet.reviews!]
-            .sort((a, b) => {
-              const timeA = new Date(a.createdAt).getTime();
-              const timeB = new Date(b.createdAt).getTime();
-              return timeB - timeA; // 최신순 정렬
-            })
-            .map((review) => (
-              <div key={review._id} className="comment-item">
-                <div className="comment-content">
-                  <span>
-                    <strong>{review.nickname}</strong>: {review.comment}
-                  </span>
-                  {review.userId === currentUserId && (
-                    <DeleteCommentButton toiletId={params.id} commentId={review._id} />
-                  )}
-                </div>
-              </div>
-            ))
-        ) : (
-          <p>아직 등록된 댓글이 없습니다.</p>
-        )}
-      </div>
-
-      <a
-        className="comment-btn"
-        href={`/toilet/${params.id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}
-      >
-        댓글 추가하기
-      </a>
-    </div>
+    <ToiletDetailPage
+      id={params.id}
+      placeName={searchParams?.place_name}
+      from={searchParams?.from}
+      currentUserId={currentUserId}
+      toilet={toilet}
+    />
   );
 }
