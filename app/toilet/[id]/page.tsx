@@ -1,4 +1,3 @@
-// app/toilet/[id]/page.tsx
 import { headers, cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { notFound } from 'next/navigation';
@@ -7,15 +6,15 @@ import ToiletDetailPage from '@/components/detail/ToiletDetailPage';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default async function Page({ params, searchParams }: any) {
   /* 0. 현재 요청 호스트로 절대 URL 만들기 */
-  const host = headers().get('host'); // ex) localhost:3000, toilet-application.vercel.app
-  const protocol = host?.startsWith('localhost') ? 'http' : 'https';
-  const baseURL = `${protocol}://${host}`;
+  const hostHeader = await headers();                 // ✅ await 추가
+  const host       = hostHeader.get('host') ?? '';    // ex) localhost:3000
+  const protocol   = host.startsWith('localhost') ? 'http' : 'https';
+  const baseURL    = `${protocol}://${host}`;
 
   /* 1. 로그인 사용자 추출 */
   const cookieStore = await cookies();
   const token = cookieStore.get('token')?.value;
   let currentUserId: string | null = null;
-
   if (token) {
     try {
       currentUserId = (
@@ -26,12 +25,11 @@ export default async function Page({ params, searchParams }: any) {
     }
   }
 
-  /* 2. 화장실 데이터 fetch ─ id + (옵션) place_name */
+  /* 2. 화장실 데이터 fetch ─ id + place_name(옵션) */
   const query =
     searchParams?.place_name
       ? `?place_name=${encodeURIComponent(searchParams.place_name)}`
       : '';
-
   const res = await fetch(`${baseURL}/api/toilet/${params.id}${query}`, {
     cache: 'no-store',
   });
