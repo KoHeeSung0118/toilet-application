@@ -4,27 +4,30 @@ import { notFound } from 'next/navigation';
 import jwt from 'jsonwebtoken';
 import ToiletDetailPage from '@/components/detail/ToiletDetailPage';
 
-interface PageProps {
-  params: { id: string };
-  searchParams: { place_name?: string; from?: string };
-}
+/* ◾ 페이지 전용 타입(이름 충돌 방지) */
+type RouteParams  = { id: string };
+type SearchParams = { place_name?: string; from?: string };
 
-export default async function Page({ params, searchParams }: PageProps) {
-  /* 0. 동기 값은 함수 시작과 동시에 고정 */
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: RouteParams;
+  searchParams: SearchParams;
+}) {
+  /* 0. 동기 값 고정 */
   const id        = params.id;
-  const placeName = searchParams?.place_name
-    ? decodeURIComponent(searchParams.place_name)
-    : '';
-  const from      = searchParams?.from ?? '';
+  const placeName = searchParams.place_name ?? '';
+  const from      = searchParams.from ?? '';
 
   /* 1. 호스트 정보 */
-  const hostHeader = await headers(); // 비동기 API
+  const hostHeader = await headers();
   const host       = hostHeader.get('host') ?? '';
   const protocol   = host.startsWith('localhost') ? 'http' : 'https';
   const baseURL    = `${protocol}://${host}`;
 
   /* 2. 로그인 사용자 */
-  const token = (await cookies()).get('token')?.value ?? null; // 비동기 API
+  const token = (await cookies()).get('token')?.value ?? null;
   let currentUserId: string | null = null;
   if (token) {
     try {

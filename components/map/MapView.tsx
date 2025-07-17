@@ -81,7 +81,7 @@ export default function MapView() {
           <a class="info-link"
              href="/toilet/${place.id}?place_name=${encodeURIComponent(
                place.place_name,
-             )}&from=${encodeURIComponent(pathname)}">자세히 보기</a>
+             )}&from=${encodeURIComponent(pathname || '')}">자세히 보기</a>
         </div>`;
 
       const content = Object.assign(document.createElement('div'), { innerHTML: html });
@@ -111,7 +111,7 @@ export default function MapView() {
         router.push(
           `/toilet/${place.id}?place_name=${encodeURIComponent(
             place.place_name,
-          )}&from=${encodeURIComponent(pathname)}`,
+          )}&from=${encodeURIComponent(pathname || '')}`,
         );
       });
     });
