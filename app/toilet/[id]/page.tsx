@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import jwt from 'jsonwebtoken';
 import ToiletDetailPage from '@/components/detail/ToiletDetailPage';
 
-/* ◾ 페이지 전용 타입(이름 충돌 방지) */
+/* 동적 세그먼트와 쿼리 타입 */
 type RouteParams  = { id: string };
 type SearchParams = { place_name?: string; from?: string };
 
@@ -12,13 +12,12 @@ export default async function Page({
   params,
   searchParams,
 }: {
-  params: RouteParams;
-  searchParams: SearchParams;
+  params: Promise<RouteParams>;          // ❗ Promise 형태로 선언
+  searchParams: Promise<SearchParams>;   // ❗
 }) {
-  /* 0. 동기 값 고정 */
-  const id        = params.id;
-  const placeName = searchParams.place_name ?? '';
-  const from      = searchParams.from ?? '';
+  /* 0. 동기 값 고정 → 먼저 await */
+  const { id }               = await params;
+  const { place_name = '', from = '' } = await searchParams;
 
   /* 1. 호스트 정보 */
   const hostHeader = await headers();
@@ -40,10 +39,8 @@ export default async function Page({
   }
 
   /* 3. 화장실 데이터 fetch */
-  const query = placeName ? `?place_name=${encodeURIComponent(placeName)}` : '';
-  const res   = await fetch(`${baseURL}/api/toilet/${id}${query}`, {
-    cache: 'no-store',
-  });
+  const query = place_name ? `?place_name=${encodeURIComponent(place_name)}` : '';
+  const res   = await fetch(`${baseURL}/api/toilet/${id}${query}`, { cache: 'no-store' });
   if (!res.ok) return notFound();
   const toilet = await res.json();
 
@@ -51,7 +48,7 @@ export default async function Page({
   return (
     <ToiletDetailPage
       id={id}
-      placeName={placeName}
+      placeName={place_name}
       from={from}
       currentUserId={currentUserId}
       toilet={toilet}
