@@ -1,6 +1,15 @@
-// pages/api/toilet/[id].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
+
+/* ─ Kakao 응답 최소 타입 ─ */
+interface KakaoDoc {
+  id: string;
+  place_name: string;
+  address_name?: string;
+  road_address_name?: string;
+  x?: string;
+  y?: string;
+}
 
 interface Review { user: string; comment: string }
 
@@ -17,7 +26,7 @@ interface Toilet {
   facility: number;
   convenience: number;
   overallRating: number;
-  [key: string]: unknown; // MongoDB 메타 필드 허용
+  [key: string]: unknown;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -35,7 +44,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   /* 2) 없거나 이름이 ‘이름 미정’이면 Kakao로 보정 */
   if (!toilet || toilet.place_name.startsWith('이름 미정')) {
-    /** Kakao 검색 */
     const kakaoRes = await fetch(
       `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(
         place_name || '화장실',
@@ -46,10 +54,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('[Kakao]', await kakaoRes.text());
       return res.status(502).json({ error: 'Kakao API 호출 실패' });
     }
-    const { documents } = await kakaoRes.json();
-    const doc: any = documents.find((d: any) => d.id === id); // id 일치하는 결과만!
 
-    /** 새(or 보정) 문서 */
+    const { documents } = (await kakaoRes.json()) as { documents: KakaoDoc[] };
+    const doc = documents.find(d => d.id === id);   // KakaoDoc | undefined
+
     const draft: Toilet = {
       id,
       place_name: doc?.place_name || place_name || '이름 미정 화장실',
@@ -65,7 +73,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       overallRating: toilet?.overallRating ?? 3,
     };
 
-    /** upsert – 기존 데이터(리뷰·키워드) 보존 */
     await col.updateOne(
       { id },
       {
@@ -88,13 +95,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { upsert: true },
     );
 
-    toilet = await col.findOne({ id }); // 최종 문서 재조회
+    toilet = await col.findOne({ id });
   }
 
   if (!toilet)
     return res.status(500).json({ error: '화장실 정보를 찾을 수 없습니다.' });
 
-  /** Decimal128 → number 변환 */
   const num = (v: unknown) =>
     typeof v === 'object' && v !== null && '$numberDecimal' in v
       ? parseFloat((v as { $numberDecimal: string }).$numberDecimal)
@@ -102,9 +108,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   res.status(200).json({
     ...toilet,
-    cleanliness: num(toilet.cleanliness),
-    facility:    num(toilet.facility),
-    convenience: num(toilet.convenience),
+    cleanliness:   num(toilet.cleanliness),
+    facility:      num(toilet.facility),
+    convenience:   num(toilet.convenience),
     overallRating: num(toilet.overallRating),
   });
 }

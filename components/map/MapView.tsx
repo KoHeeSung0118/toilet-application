@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'; // ★
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Header from '@/components/common/Header';
 import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
@@ -37,10 +37,9 @@ interface EnrichedToilet extends KakaoPlace {
 
 /* ───────── 컴포넌트 ───────── */
 export default function MapView() {
-  const router      = useRouter();            // ★
-  const pathname    = usePathname();          // ★
+  const router       = useRouter();
+  const pathname     = usePathname();
   const searchParams = useSearchParams();
-
   const { setToiletList } = useToilet();
 
   const mapRef     = useRef<kakao.maps.Map | null>(null);
@@ -71,7 +70,6 @@ export default function MapView() {
       });
       markersRef.current.push(marker);
 
-      /* ★ 오버레이 콘텐츠 (place_name·from 포함) */
       const html = `
         <div class="custom-overlay">
           <button class="custom-close-btn">&times;</button>
@@ -96,7 +94,6 @@ export default function MapView() {
 
       kakao.maps.event.addListener(marker, 'click', () => {
         if (currentOverlay && currentOverlay !== overlay) currentOverlay.setMap(null);
-
         mapRef.current?.panTo(pos);
         overlay.setMap(mapRef.current);
         currentOverlay = overlay;
@@ -109,7 +106,7 @@ export default function MapView() {
           });
       });
 
-      /* ★ marker 더블클릭 → 상세 페이지로 바로 이동 (선택) */
+      /* (선택) 더블클릭 → 상세 페이지 바로 이동 */
       kakao.maps.event.addListener(marker, 'dblclick', () => {
         router.push(
           `/toilet/${place.id}?place_name=${encodeURIComponent(
@@ -132,7 +129,6 @@ export default function MapView() {
 
           const enriched = await Promise.all(
             data.map(async place => {
-              /* ★ API 호출에 place_name 쿼리 포함 */
               const res = await fetch(
                 `/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`,
               );
@@ -155,6 +151,24 @@ export default function MapView() {
       );
     },
     [renderMarkers, setToiletList]
+  );
+
+  /* ───────── 주소 검색 ───────── */
+  const handleQuerySearch = useCallback(
+    (keyword: string) => {
+      const geocoder = new kakao.maps.services.Geocoder();
+      geocoder.addressSearch(keyword, (result, status) => {
+        if (status === kakao.maps.services.Status.OK) {
+          const { y, x } = result[0];
+          const coords = new kakao.maps.LatLng(+y, +x);
+          mapRef.current?.setCenter(coords);
+          searchToilets(+y, +x);
+        } else {
+          alert('검색 결과가 없습니다.');
+        }
+      });
+    },
+    [searchToilets]
   );
 
   /* ───────── 지도 초기화 & SDK 로드 ───────── */
@@ -191,25 +205,7 @@ export default function MapView() {
         );
       });
     };
-  }, [queryKeyword, searchToilets]);
-
-  /* ───────── 주소 검색 ───────── */
-  const handleQuerySearch = useCallback(
-    (keyword: string) => {
-      const geocoder = new kakao.maps.services.Geocoder();
-      geocoder.addressSearch(keyword, (result, status) => {
-        if (status === kakao.maps.services.Status.OK) {
-          const { y, x } = result[0];
-          const coords = new kakao.maps.LatLng(+y, +x);
-          mapRef.current?.setCenter(coords);
-          searchToilets(+y, +x);
-        } else {
-          alert('검색 결과가 없습니다.');
-        }
-      });
-    },
-    [searchToilets]
-  );
+  }, [queryKeyword, searchToilets, handleQuerySearch]); // 🚩 handleQuerySearch 추가
 
   /* ───────── 필터 적용 시 마커 갱신 ───────── */
   const filtered = selectedFilters.length
