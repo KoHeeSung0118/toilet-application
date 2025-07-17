@@ -5,44 +5,42 @@ import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'POST 요청만 허용됩니다.' });
-  }
+  if (req.method !== 'POST')
+    return res.status(405).json({ ok: false, message: 'POST 요청만 허용됩니다.' });
 
-  const { email, password, remember } = req.body;
-
-  const db = (await connectDB).db('toilet_app');
+  const { email, password, remember = false } = req.body;
+  const db   = (await connectDB).db('toilet_app');
   const user = await db.collection('users').findOne({ email });
 
-  if (!user) {
-    return res.status(401).json({ message: '사용자를 찾을 수 없습니다.' });
-  }
+  if (!user)
+    return res.status(401).json({ ok: false, message: '사용자를 찾을 수 없습니다.' });
 
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.status(401).json({ message: '비밀번호가 틀렸습니다.' });
-  }
+  const pwMatch = await bcrypt.compare(password, user.password);
+  if (!pwMatch)
+    return res.status(401).json({ ok: false, message: '비밀번호가 틀렸습니다.' });
 
-  const JWT_SECRET = process.env.JWT_SECRET!;
-  const isRememberChecked = remember === 'on';
+  /* remember (boolean) 처리 */
+  const keep30Days = remember === true || remember === 'on';
+  const maxAgeSec  = keep30Days ? 60 * 60 * 24 * 30 : 60 * 60; // 30일 or 1시간
+  const expires    = new Date(Date.now() + maxAgeSec * 1000);
 
-  // ✅ expiresIn과 maxAge를 초 단위로 정확히 일치시킴
-  const maxAge = isRememberChecked ? 60 * 60 * 24 * 30 : 60 * 60; // 30일 or 1시간
-
+  /* JWT 발급 */
   const token = jwt.sign(
     { userId: user._id.toString(), email: user.email },
-    JWT_SECRET,
-    { expiresIn: maxAge } // expiresIn에 숫자(초)도 가능
+    process.env.JWT_SECRET as string,
+    { expiresIn: maxAgeSec },
   );
 
+  /* 쿠키 설정 */
   const cookie = serialize('token', token, {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: false, // 로컬 개발 환경에선 false
-    maxAge, // ✅ 쿠키 유효기간도 정확히 맞춤
+    secure: process.env.NODE_ENV === 'production', // 🌐 프로덕션에서만 secure
+    maxAge: maxAgeSec,
+    expires,
   });
 
   res.setHeader('Set-Cookie', cookie);
-  return res.status(200).json({ message: '로그인 성공' });
+  return res.status(200).json({ ok: true, message: '로그인 성공' });
 }

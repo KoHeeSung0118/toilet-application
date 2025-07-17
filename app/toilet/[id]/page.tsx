@@ -1,19 +1,30 @@
+// app/toilet/[id]/page.tsx
 import { headers, cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
 import { notFound } from 'next/navigation';
+import jwt from 'jsonwebtoken';
 import ToiletDetailPage from '@/components/detail/ToiletDetailPage';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export default async function Page({ params, searchParams }: any) {
-  /* 0. 현재 요청 호스트로 절대 URL 만들기 */
-  const hostHeader = await headers();                 // ✅ await 추가
-  const host       = hostHeader.get('host') ?? '';    // ex) localhost:3000
+interface PageProps {
+  params: { id: string };
+  searchParams: { place_name?: string; from?: string };
+}
+
+export default async function Page({ params, searchParams }: PageProps) {
+  /* 0. 동기 값은 함수 시작과 동시에 고정 */
+  const id        = params.id;
+  const placeName = searchParams?.place_name
+    ? decodeURIComponent(searchParams.place_name)
+    : '';
+  const from      = searchParams?.from ?? '';
+
+  /* 1. 호스트 정보 */
+  const hostHeader = await headers(); // 비동기 API
+  const host       = hostHeader.get('host') ?? '';
   const protocol   = host.startsWith('localhost') ? 'http' : 'https';
   const baseURL    = `${protocol}://${host}`;
 
-  /* 1. 로그인 사용자 추출 */
-  const cookieStore = await cookies();
-  const token = cookieStore.get('token')?.value;
+  /* 2. 로그인 사용자 */
+  const token = (await cookies()).get('token')?.value ?? null; // 비동기 API
   let currentUserId: string | null = null;
   if (token) {
     try {
@@ -21,28 +32,24 @@ export default async function Page({ params, searchParams }: any) {
         jwt.verify(token, process.env.JWT_SECRET as string) as { userId: string }
       ).userId;
     } catch (e) {
-      console.error('JWT Decode Error:', e);
+      console.error('[JWT Decode Error]', e);
     }
   }
 
-  /* 2. 화장실 데이터 fetch ─ id + place_name(옵션) */
-  const query =
-    searchParams?.place_name
-      ? `?place_name=${encodeURIComponent(searchParams.place_name)}`
-      : '';
-  const res = await fetch(`${baseURL}/api/toilet/${params.id}${query}`, {
+  /* 3. 화장실 데이터 fetch */
+  const query = placeName ? `?place_name=${encodeURIComponent(placeName)}` : '';
+  const res   = await fetch(`${baseURL}/api/toilet/${id}${query}`, {
     cache: 'no-store',
   });
-
   if (!res.ok) return notFound();
   const toilet = await res.json();
 
-  /* 3. 페이지 렌더 */
+  /* 4. 렌더 */
   return (
     <ToiletDetailPage
-      id={params.id}
-      placeName={searchParams?.place_name}
-      from={searchParams?.from}
+      id={id}
+      placeName={placeName}
+      from={from}
       currentUserId={currentUserId}
       toilet={toilet}
     />

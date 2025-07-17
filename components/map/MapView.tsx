@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'; // ★
 import Header from '@/components/common/Header';
 import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
-import { useSearchParams } from 'next/navigation';
 
 /* ───────── 상수 & 타입 ───────── */
 const FILTERS = [
@@ -37,6 +37,10 @@ interface EnrichedToilet extends KakaoPlace {
 
 /* ───────── 컴포넌트 ───────── */
 export default function MapView() {
+  const router      = useRouter();            // ★
+  const pathname    = usePathname();          // ★
+  const searchParams = useSearchParams();
+
   const { setToiletList } = useToilet();
 
   const mapRef     = useRef<kakao.maps.Map | null>(null);
@@ -46,7 +50,6 @@ export default function MapView() {
   const [allToilets,     setAllToilets]     = useState<EnrichedToilet[]>([]);
   const [showFilters,    setShowFilters]    = useState(false);
 
-  const searchParams = useSearchParams();
   const queryKeyword = searchParams?.get('query');
 
   /* ───────── 마커 렌더 ───────── */
@@ -54,7 +57,6 @@ export default function MapView() {
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
-    /* ✅ 현재 열린 오버레이를 저장 */
     let currentOverlay: kakao.maps.CustomOverlay | null = null;
 
     toilets.forEach(place => {
@@ -69,6 +71,7 @@ export default function MapView() {
       });
       markersRef.current.push(marker);
 
+      /* ★ 오버레이 콘텐츠 (place_name·from 포함) */
       const html = `
         <div class="custom-overlay">
           <button class="custom-close-btn">&times;</button>
@@ -77,9 +80,10 @@ export default function MapView() {
           <div class="info-keywords">
             ${place.keywords.map(k => `<span>#${k}</span>`).join('')}
           </div>
-          <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(
-            place.place_name
-          )}">자세히 보기</a>
+          <a class="info-link"
+             href="/toilet/${place.id}?place_name=${encodeURIComponent(
+               place.place_name,
+             )}&from=${encodeURIComponent(pathname)}">자세히 보기</a>
         </div>`;
 
       const content = Object.assign(document.createElement('div'), { innerHTML: html });
@@ -91,16 +95,12 @@ export default function MapView() {
       });
 
       kakao.maps.event.addListener(marker, 'click', () => {
-        /* 🔒 다른 오버레이가 열려 있으면 닫기 */
-        if (currentOverlay && currentOverlay !== overlay) {
-          currentOverlay.setMap(null);
-        }
+        if (currentOverlay && currentOverlay !== overlay) currentOverlay.setMap(null);
 
         mapRef.current?.panTo(pos);
         overlay.setMap(mapRef.current);
         currentOverlay = overlay;
 
-        /* X 버튼으로 직접 닫을 때 상태 초기화 */
         content
           .querySelector('.custom-close-btn')
           ?.addEventListener('click', () => {
@@ -108,8 +108,17 @@ export default function MapView() {
             if (currentOverlay === overlay) currentOverlay = null;
           });
       });
+
+      /* ★ marker 더블클릭 → 상세 페이지로 바로 이동 (선택) */
+      kakao.maps.event.addListener(marker, 'dblclick', () => {
+        router.push(
+          `/toilet/${place.id}?place_name=${encodeURIComponent(
+            place.place_name,
+          )}&from=${encodeURIComponent(pathname)}`,
+        );
+      });
     });
-  }, []);
+  }, [pathname, router]);
 
   /* ───────── 화장실 검색 & 병합 ───────── */
   const searchToilets = useCallback(
@@ -123,8 +132,11 @@ export default function MapView() {
 
           const enriched = await Promise.all(
             data.map(async place => {
-              const res = await fetch(`/api/toilet/${place.id}`);
-              const db  = (await res.json()) as ToiletDbData;
+              /* ★ API 호출에 place_name 쿼리 포함 */
+              const res = await fetch(
+                `/api/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}`,
+              );
+              const db = (await res.json()) as ToiletDbData;
               return {
                 ...place,
                 overallRating: db.overallRating ?? 3,
