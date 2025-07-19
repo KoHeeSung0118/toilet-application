@@ -8,20 +8,19 @@
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "bundler",   // ← ts-node 10+에서도 OK
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+
+    /* ───────── alias 설정 ───────── */
+    "baseUrl": ".",                 // ★ 추가
     "paths": {
       "@/*": ["./*"]
-    }
-    // ✅ "types": ["kakao.maps"] 이 줄 제거!
+    },
+
+    "plugins": [{ "name": "next" }]
   },
   "include": [
     "global.d.ts",
