@@ -9,6 +9,8 @@ export interface Toilet {
   overallRating?: number;
   reviews?: { user: string; comment: string }[];
   keywords?: string[]; // 👉 필요 시 추가
+  lat: number;   // 위도
+  lng: number;   // 경도
 }
 
 interface ToiletContextType {

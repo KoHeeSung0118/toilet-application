@@ -1,3 +1,8 @@
+/* ------------------------------------------------------------------
+ * ToiletDetailPage 레이아웃 & 스타일
+ * 컬러 팔레트: 메인 #4E3CDB · 서브 #867cd0 · 라이트 #e9e7f8
+ * ----------------------------------------------------------------*/
+
 .detail-page {
   padding: 1.5rem;
   font-family: 'Segoe UI', sans-serif;
@@ -9,6 +14,7 @@
   min-height: calc(100vh - 3.75rem);
 }
 
+/* 헤더 -----------------------------------------------------------*/
 .detail-header {
   position: relative;
   background: linear-gradient(135deg, #e9e7f8, #f7f6fc);
@@ -33,6 +39,7 @@
   font-weight: bold;
 }
 
+/* 버튼 그룹 ------------------------------------------------------*/
 .btn-group {
   display: flex;
   justify-content: center;
@@ -41,9 +48,10 @@
   margin-top: 1rem;
 }
 
+/* a 링크 버튼 */
 .btn-group a {
   background-color: #867cd0;
-  color: white;
+  color: #fff;
   padding: 0.625rem 1rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
@@ -56,6 +64,27 @@
   background-color: #4E3CDB;
 }
 
+/* 🚗 길찾기 버튼 (DirectionsButton) */
+.btn-group .route-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background-color: #867cd0;
+  color: #fff;
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-group .route-btn:hover {
+  background-color: #4E3CDB;
+}
+
+/* 즐겨찾기 -------------------------------------------------------*/
 .favorite-wrapper {
   position: absolute;
   top: 1rem;
@@ -71,6 +100,7 @@
   color: #4E3CDB;
 }
 
+/* 태그 박스 ------------------------------------------------------*/
 .tags-box {
   background-color: #f8f7fd;
   padding: 1rem;
@@ -81,6 +111,7 @@
   box-shadow: inset 0 0 0.1875rem rgba(0, 0, 0, 0.03);
 }
 
+/* 키워드 ---------------------------------------------------------*/
 .keyword-box {
   margin: 1rem 0;
   display: flex;
@@ -97,6 +128,7 @@
   font-weight: 500;
 }
 
+/* 댓글 -----------------------------------------------------------*/
 .reviews {
   padding: 1.25rem;
   background-color: #f7f6fd;
@@ -131,7 +163,7 @@
 .comment-btn {
   display: block;
   background-color: #4E3CDB;
-  color: white;
+  color: #fff;
   font-size: 1rem;
   padding: 0.875rem;
   text-align: center;
@@ -145,6 +177,7 @@
   background-color: #372bc4;
 }
 
+/* 뒤로가기 ------------------------------------------------------*/
 .back-button {
   display: inline-flex;
   align-items: center;
