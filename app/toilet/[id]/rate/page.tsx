@@ -61,7 +61,7 @@ export default function RatingPage() {
       <h2 className="title">{placeName}</h2>
 
       <div className="label-row">
-        <label>전체</label>
+        <label>종합</label>
         <div className="star-row">{renderStars(overall, setOverall)}</div>
       </div>
       <div className="label-row">

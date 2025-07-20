@@ -5,12 +5,11 @@ import { useState } from 'react';
 import './LoginForm.css';
 
 export default function LoginPage() {
-  const [email,    setEmail]    = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
-  const [loading,  setLoading]  = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  /* ───────── 핸들러 ───────── */
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
@@ -32,7 +31,6 @@ export default function LoginPage() {
 
       if (res.ok) {
         alert(data.message ?? '로그인 성공');
-        /* ✅ 탑-레벨 리다이렉션 → 쿠키가 확실히 전송됨 */
         window.location.href = '/';
       } else {
         alert(data.message ?? '로그인 실패');
@@ -45,7 +43,6 @@ export default function LoginPage() {
     }
   }
 
-  /* ───────── UI ───────── */
   return (
     <div className="login-wrapper">
       <h1 className="login-title">로그인</h1>

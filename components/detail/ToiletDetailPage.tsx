@@ -46,9 +46,6 @@ export default function ToiletDetailPage({
   const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
   const encodedName = encodeURIComponent(placeName || toilet.place_name || '');
 
-  /* 별점 → 상태 텍스트 */
-  const getRatingStatus = (score?: number) =>
-    score == null ? '정보 없음' : score >= 4 ? '좋음' : score >= 2.5 ? '보통' : '나쁨';
 
   return (
     <div className="detail-page">
@@ -83,9 +80,10 @@ export default function ToiletDetailPage({
 
       {/* 태그 상태 */}
       <div className="tags-box">
-        <div>청결: {getRatingStatus(toilet.cleanliness)}</div>
-        <div>시설: {getRatingStatus(toilet.facility)}</div>
-        <div>편의: {getRatingStatus(toilet.convenience)}</div>
+        사용자들의 평균 점수
+        <div>청결: {toilet.cleanliness}점</div>
+        <div>시설: {toilet.facility}점</div>
+        <div>편의: {toilet.convenience}점</div>
       </div>
 
       {/* 키워드 */}
