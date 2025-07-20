@@ -10,10 +10,10 @@ import DirectionsButton from '@/components/detail/DirectionsButton';
  * 타입 정의 (MongoDB _id 유지)
  * ------------------------------------------------------*/
 interface Toilet {
-  _id: string;           // MongoDB ObjectId 그대로 보존
+  _id: string;
   place_name: string;
-  lat: number;           // 위도 (number)
-  lng: number;           // 경도 (number)
+  lat: number;
+  lng: number;
   keywords?: string[];
   reviews?: {
     _id: string;
@@ -29,7 +29,7 @@ interface Toilet {
 }
 
 interface ToiletDetailPageProps {
-  id: string;                   // 카카오 place id (URL 세그먼트)
+  id: string;
   placeName?: string;
   from?: string;
   currentUserId: string | null;
@@ -43,9 +43,25 @@ export default function ToiletDetailPage({
   currentUserId,
   toilet,
 }: ToiletDetailPageProps) {
-  const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
-  const encodedName = encodeURIComponent(placeName || toilet.place_name || '');
+  const rating =
+    typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
+  const encodedName = encodeURIComponent(
+    placeName || toilet.place_name || ''
+  );
 
+  // 몇 분/몇 시간/며칠 전 형식으로 변환
+  const formatTimeAgo = (date: string | Date) => {
+    const now = Date.now();
+    const then = new Date(date).getTime();
+    const diffSec = Math.floor((now - then) / 1000);
+    if (diffSec < 60) return `${diffSec}초 전`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay}일 전`;
+  };
 
   return (
     <div className="detail-page">
@@ -63,13 +79,20 @@ export default function ToiletDetailPage({
 
         {/* 액션 버튼 그룹 */}
         <div className="btn-group">
-          <a href={`/toilet/${id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
+          <a
+            href={`/toilet/${id}/keywords?place_name=${encodedName}${
+              from ? `&from=${from}` : ''
+            }`}
+          >
             키워드 추가하기
           </a>
-          <a href={`/toilet/${id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
+          <a
+            href={`/toilet/${id}/rate?place_name=${encodedName}${
+              from ? `&from=${from}` : ''
+            }`}
+          >
             별점 추가하기
           </a>
-          {/* 🚗 길찾기 버튼 */}
           <DirectionsButton
             placeName={toilet.place_name}
             lat={toilet.lat}
@@ -78,7 +101,7 @@ export default function ToiletDetailPage({
         </div>
       </div>
 
-      {/* 태그 상태 */}
+      {/* 사용자들의 평균 점수 */}
       <div className="tags-box">
         사용자들의 평균 점수
         <div>청결: {toilet.cleanliness}점</div>
@@ -90,7 +113,9 @@ export default function ToiletDetailPage({
       {toilet.keywords?.length ? (
         <div className="keyword-box">
           {toilet.keywords.map((kw, idx) => (
-            <span key={idx} className="tag">#{kw}</span>
+            <span key={idx} className="tag">
+              #{kw}
+            </span>
           ))}
         </div>
       ) : (
@@ -102,15 +127,27 @@ export default function ToiletDetailPage({
         <h3>댓글</h3>
         {toilet.reviews?.length ? (
           toilet.reviews
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+            )
             .map((r) => (
               <div key={r._id} className="comment-item">
                 <div className="comment-content">
-                  <span>
-                    <strong className="nickname">{r.nickname}</strong>: {r.comment}
+                  <strong className="nickname">{r.nickname}</strong>:{' '}
+                  <span className="comment-text">{r.comment}</span>
+
+                  {/* 작성 시간 */}
+                  <span className="comment-date">
+                    {formatTimeAgo(r.createdAt)}
                   </span>
+
                   {r.userId === currentUserId && (
-                    <DeleteCommentButton toiletId={id} commentId={r._id} />
+                    <DeleteCommentButton
+                      toiletId={id}
+                      commentId={r._id}
+                    />
                   )}
                 </div>
               </div>
@@ -123,7 +160,9 @@ export default function ToiletDetailPage({
       {/* 댓글 작성 버튼 */}
       <a
         className="comment-btn"
-        href={`/toilet/${id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}
+        href={`/toilet/${id}/comment?place_name=${encodedName}${
+          from ? `&from=${from}` : ''
+        }`}
       >
         댓글 추가하기
       </a>
