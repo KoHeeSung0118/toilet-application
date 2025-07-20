@@ -23,9 +23,9 @@ button {
   border-radius: 5px;
 }
 
-*{
+/* *{
   border: 1px solid red;
-}
+} */
 
 html, body {
   height: 100%; /* ✅ 이거 꼭 필요해! */
