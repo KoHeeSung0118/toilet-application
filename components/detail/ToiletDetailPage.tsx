@@ -49,18 +49,27 @@ export default function ToiletDetailPage({
     placeName || toilet.place_name || ''
   );
 
-  // 몇 분/몇 시간/며칠 전 형식으로 변환
+  // 몇 초/분/시간/일/개월/년 전 형식으로 변환
   const formatTimeAgo = (date: string | Date) => {
     const now = Date.now();
     const then = new Date(date).getTime();
     const diffSec = Math.floor((now - then) / 1000);
     if (diffSec < 60) return `${diffSec}초 전`;
+
     const diffMin = Math.floor(diffSec / 60);
     if (diffMin < 60) return `${diffMin}분 전`;
+
     const diffHour = Math.floor(diffMin / 60);
     if (diffHour < 24) return `${diffHour}시간 전`;
+
     const diffDay = Math.floor(diffHour / 24);
-    return `${diffDay}일 전`;
+    if (diffDay < 30) return `${diffDay}일 전`;
+
+    const diffMonth = Math.floor(diffDay / 30);
+    if (diffMonth < 12) return `${diffMonth}개월 전`;
+
+    const diffYear = Math.floor(diffDay / 365);
+    return `${diffYear}년 전`;
   };
 
   return (
