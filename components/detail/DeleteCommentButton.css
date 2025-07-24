@@ -12,17 +12,19 @@
   flex: 1;
 }
 
-.delete-btn {
-  background-color: #ff6b6b;
-  color: white;
-  border: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
+/* components/detail/DeleteCommentButton.css */
 
+.delete-btn {
+  background: none;
+  border: none;
+  padding: 5px;             /* 클릭 영역 확보 */
+  cursor: pointer;
+  color: #999;              /* 기본 아이콘 회색 */
+  transition: color 0.2s;
+}
 .delete-btn:hover {
-  background-color: #ff4d4d;
+  color: #FF6B6B;           /* 호버 시 아이콘 빨강 */
+}
+.delete-btn:active {
+  color: #C0392B;           /* 클릭 중 아이콘 진한 빨강 */
 }

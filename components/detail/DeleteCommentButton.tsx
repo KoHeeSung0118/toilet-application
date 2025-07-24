@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import './DeleteCommentButton.css'
+import { DeleteIcon } from '../icons/DeleteIcon'
 
 interface Props {
   toiletId: string;
@@ -32,8 +33,12 @@ export default function DeleteCommentButton({ toiletId, commentId }: Props) {
   };
 
   return (
-    <button className="delete-btn" onClick={handleDelete}>
-      삭제
-    </button>
+    <button
+      className="delete-btn"
+      onClick={handleDelete}
+      aria-label="댓글 삭제"
+    >
+      <DeleteIcon width={30} height={30} />
+     </button>
   );
 }
