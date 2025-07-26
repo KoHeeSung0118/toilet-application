@@ -50,11 +50,13 @@
 }
 
 .map-container {
+  z-index: 0;
   flex: 1;
   border-radius: 1rem;
   overflow: hidden;
   height: 100%;
   min-height: 25rem;
+  position: relative; /* 내부 절대위치 기준 */
 }
 
 /* ✅ CustomOverlay 스타일 */
@@ -103,16 +105,10 @@
   font-weight: 600;
   font-size: 1.05rem;
   color: #4E3CDB;
-  word-break: keep-all;
-  word-break: break-word;
-  /* ✅ 긴 단어 줄바꿈 허용 */
   overflow-wrap: break-word;
-  /* ✅ 긴 단어도 줄바꿈 */
   white-space: normal;
-  /* ✅ 줄바꿈 허용 */
   padding-right: 2rem;
 }
-
 
 .info-rating {
   color: #f5a623;
@@ -158,3 +154,29 @@ div[class^="wrap"] {
   border: none !important;
   box-shadow: none !important;
 }
+
+/* 현재 위치 버튼 */
+.loc-btn {
+  z-index: 99999; /* 🔼 다른 마커나 오버레이보다 확실히 위 */
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.loc-btn:hover {
+  background-color: #f2f2f2;
+}
+

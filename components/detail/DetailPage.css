@@ -173,6 +173,10 @@
   transition: background-color 0.2s ease;
 }
 
+.comment-content span {
+  flex: 1;
+}
+
 .comment-btn:hover {
   background-color: #372bc4;
 }

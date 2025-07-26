@@ -1,17 +1,3 @@
-.comment-item {
-  margin-bottom: 12px;
-}
-
-.comment-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.comment-content span {
-  flex: 1;
-}
-
 /* components/detail/DeleteCommentButton.css */
 
 .delete-btn {
