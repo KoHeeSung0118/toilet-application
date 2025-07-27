@@ -223,7 +223,7 @@ export default function MapView() {
       <Header />
       <div className="top-ui">
         <button className="toggle-filter-btn" onClick={() => setShowFilters(p => !p)}>
-          {showFilters ? '키워드 숨기기' : '키워드 보기'}
+          {showFilters ? '키워드 숨기기' : '키워드로 찾기'}
         </button>
         {showFilters && (
           <div className="keyword-filter">

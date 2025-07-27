@@ -126,7 +126,10 @@ export default function ToiletDetailPage({
           ))}
         </div>
       ) : (
-        <p style={{ marginTop: '1rem' }}>등록된 키워드가 없습니다.</p>
+        <div className='keyword-box'>
+          <p style={{ marginTop: '1rem' }}>등록된 키워드가 없습니다.</p>
+        </div>
+        
       )}
 
       {/* 댓글 */}
@@ -142,18 +145,20 @@ export default function ToiletDetailPage({
             .map((r) => (
               <div key={r._id} className="comment-item">
                 <div className="comment-content">
-                  <div className="comment-main">
-                    <strong className="nickname">{r.nickname}</strong>
-                    <span className="comment-text">{r.comment}</span>
-                  </div>
+  <div className="comment-main">
+    <strong className="nickname">{r.nickname}</strong>
+    <span className="comment-text">{r.comment}</span>
+  </div>
 
-                  <div className="comment-right">
-                    <span className="comment-date">{formatTimeAgo(r.createdAt)}</span>
-                    {r.userId === currentUserId && (
-                      <DeleteCommentButton toiletId={id} commentId={r._id} />
-                    )}
-                  </div>
-                </div>
+  <div className="comment-right">
+    <span className="comment-date">{formatTimeAgo(r.createdAt)}</span>
+    {r.userId === currentUserId && (
+      <DeleteCommentButton toiletId={id} commentId={r._id} />
+    )}
+  </div>
+</div>
+
+
               </div>
             ))
         ) : (
