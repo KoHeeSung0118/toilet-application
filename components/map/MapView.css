@@ -57,6 +57,7 @@
   height: 100%;
   min-height: 25rem;
   position: relative; /* 내부 절대위치 기준 */
+  user-select: none;
 }
 
 /* ✅ CustomOverlay 스타일 */
