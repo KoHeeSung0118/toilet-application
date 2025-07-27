@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Search, LogOut } from 'lucide-react';
 import './Header.css';
 
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
+  const inputRef = useRef<HTMLInputElement>(null); // ✅ input 참조
 
   const showSearch = pathname === '/' || pathname === '/list' || pathname === '/favorites';
   const hideLogout = pathname === '/login' || pathname === '/signup';
@@ -39,12 +40,25 @@ export default function Header() {
     if (e.key === 'Enter') handleSearch();
   };
 
+  // ✅ 버튼 클릭 시 검색창 열리고 자동 focus
+  const handleSearchToggle = () => {
+    setSearchOpen((prev) => {
+      const next = !prev;
+      if (!prev) {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 0);
+      }
+      return next;
+    });
+  };
+
   return (
     <header className="header">
       {showSearch ? (
         <div className="search-area">
           <button
-            onClick={() => setSearchOpen((prev) => !prev)}
+            onClick={handleSearchToggle}
             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             aria-label="검색창 열기"
           >
@@ -52,6 +66,7 @@ export default function Header() {
           </button>
 
           <input
+            ref={inputRef} // ✅ input 참조 연결
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}

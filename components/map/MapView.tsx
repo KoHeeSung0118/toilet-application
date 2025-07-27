@@ -34,29 +34,28 @@ const toNum = (v?: string | number | null) => { const n = Number(v); return Numb
 
 /* ----------------------------- 컴포넌트 ----------------------------- */
 export default function MapView() {
-  const router       = useRouter();
-  const pathname     = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { setToiletList } = useToilet();
 
-  const mapRef        = useRef<kakao.maps.Map | null>(null);
-  const markersRef    = useRef<kakao.maps.Marker[]>([]);
+  const mapRef = useRef<kakao.maps.Map | null>(null);
+  const markersRef = useRef<kakao.maps.Marker[]>([]);
   const currentPosRef = useRef<kakao.maps.LatLng | null>(null);
-  const idleTimerRef  = useRef<NodeJS.Timeout | null>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null); // ✅ 팝업 상태 저장
 
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [allToilets, setAllToilets]           = useState<Toilet[]>([]);
-  const [showFilters, setShowFilters]         = useState(false);
+  const [allToilets, setAllToilets] = useState<Toilet[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const queryKeyword = searchParams?.get('query');
 
-  /* -------- 마커 그리기 (useCallback) -------- */
+  /* -------- 마커 그리기 -------- */
   const drawMarkers = useCallback((toilets: Toilet[]) => {
     if (!mapRef.current) return;
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
-
-    let currentOverlay: kakao.maps.CustomOverlay | null = null;
 
     toilets.forEach(place => {
       const pos = new window.kakao.maps.LatLng(place.lat, place.lng);
@@ -76,16 +75,27 @@ export default function MapView() {
           <a class="info-link" href="/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}&from=${encodeURIComponent(pathname || '')}">자세히 보기</a>
         </div>`;
       const content = Object.assign(document.createElement('div'), { innerHTML: html });
-      const overlay = new window.kakao.maps.CustomOverlay({ content, position: pos, xAnchor: 0.5, yAnchor: 1.1 });
+      const overlay = new window.kakao.maps.CustomOverlay({
+        content,
+        position: pos,
+        xAnchor: 0.5,
+        yAnchor: 1.1,
+        zIndex: 9999,
+      });
 
       window.kakao.maps.event.addListener(marker, 'click', () => {
-        if (currentOverlay && currentOverlay !== overlay) currentOverlay.setMap(null);
-        mapRef.current?.panTo(pos);                         /* 중심 이동 */
+        if (currentOverlayRef.current && currentOverlayRef.current !== overlay) {
+          currentOverlayRef.current.setMap(null);
+        }
+        mapRef.current?.panTo(pos);
         overlay.setMap(mapRef.current);
-        currentOverlay = overlay;
+        currentOverlayRef.current = overlay;
+
         content.querySelector('.custom-close-btn')?.addEventListener('click', () => {
           overlay.setMap(null);
-          if (currentOverlay === overlay) currentOverlay = null;
+          if (currentOverlayRef.current === overlay) {
+            currentOverlayRef.current = null;
+          }
         });
       });
 
@@ -104,7 +114,7 @@ export default function MapView() {
       const enriched = await Promise.all(
         data.map(async (p: KakaoPlace) => {
           const res = await fetch(`/api/toilet/${p.id}?place_name=${encodeURIComponent(p.place_name)}`);
-          const db  = (await res.json()) as ToiletDbData;
+          const db = (await res.json()) as ToiletDbData;
           return { ...p, overallRating: db.overallRating ?? 3, reviews: db.reviews ?? [], keywords: db.keywords ?? [] };
         })
       );
@@ -126,6 +136,7 @@ export default function MapView() {
 
   /* -------- 주소 검색 -------- */
   const handleQuerySearch = useCallback((keyword: string) => {
+    if (window.kakao === undefined) return;
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
       if (status === window.kakao.maps.services.Status.OK) {
@@ -138,14 +149,14 @@ export default function MapView() {
     });
   }, [searchToilets]);
 
-  /* URL query → 재검색 */
   useEffect(() => { if (queryKeyword) handleQuerySearch(queryKeyword); }, [queryKeyword, handleQuerySearch]);
 
-  /* -------- Kakao SDK 로드 & 초기화 -------- */
+  /* -------- 지도 초기화 -------- */
   useEffect(() => {
     const s = document.createElement('script');
     s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services';
-    s.async = true; document.head.appendChild(s);
+    s.async = true;
+    document.head.appendChild(s);
 
     s.onload = () => {
       window.kakao.maps.load(() => {
@@ -168,20 +179,19 @@ export default function MapView() {
 
         navigator.geolocation.getCurrentPosition(
           pos => initMap(pos.coords.latitude, pos.coords.longitude),
-          ()  => initMap(37.5665, 126.9780)
+          () => initMap(37.5665, 126.9780)
         );
       });
     };
   }, [queryKeyword, searchToilets, handleQuerySearch]);
 
-  /* -------- 실시간 위치 추적 -------- */
+  /* -------- 현재 위치 마커 -------- */
   useEffect(() => {
     let currentMarker: KakaoMarker | null = null;
     const watchId = navigator.geolocation.watchPosition(({ coords }) => {
       if (!mapRef.current) return;
       const latLng = new window.kakao.maps.LatLng(coords.latitude, coords.longitude);
       currentPosRef.current = latLng;
-
       if (!currentMarker) {
         currentMarker = new window.kakao.maps.Marker({
           map: mapRef.current,
@@ -189,23 +199,25 @@ export default function MapView() {
           image: new window.kakao.maps.MarkerImage('/marker/location-icon.png', new window.kakao.maps.Size(36, 36)),
           zIndex: 9999,
         }) as KakaoMarker;
-      } else currentMarker.setPosition(latLng);
+      } else {
+        currentMarker.setPosition(latLng);
+      }
     });
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  /* 현재 위치 버튼 */
-  const handleLocateClick = () => { if (mapRef.current && currentPosRef.current) mapRef.current.panTo(currentPosRef.current); };
+  const handleLocateClick = () => {
+    if (mapRef.current && currentPosRef.current) mapRef.current.panTo(currentPosRef.current);
+  };
 
-  /* 필터링 시 마커 갱신 */
-  useEffect(() => { drawMarkers(
+  useEffect(() => {
+    drawMarkers(
       selectedFilters.length
         ? allToilets.filter(t => selectedFilters.every(f => t.keywords.includes(f)))
         : allToilets
-    ); // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFilters, allToilets]);
+    );
+  }, [selectedFilters, allToilets, drawMarkers]);
 
-  /* ---------------- JSX ---------------- */
   return (
     <div className="map-wrapper">
       <Header />

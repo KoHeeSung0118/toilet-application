@@ -48,7 +48,6 @@
   margin-top: 1rem;
 }
 
-/* a 링크 버튼 */
 .btn-group a {
   background-color: #867cd0;
   color: #fff;
@@ -148,18 +147,52 @@
   background-color: #fff;
   border: 1px solid #e0def2;
   margin-bottom: 0.625rem;
+  display: flex;
+  align-items: center;
 }
 
 .comment-content {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+
+}
+
+/* ✅ 닉네임 + 댓글 본문 묶는 부분 */
+.comment-main {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
   align-items: center;
 }
 
-.reviews strong {
+.nickname {
+  font-weight: bold;
   color: #4E3CDB;
+  white-space: nowrap;
 }
 
+.comment-text {
+  flex: 1;
+  word-break: break-word;
+  font-size: 0.95rem;
+}
+
+/* 작성 시간 */
+.comment-date {
+  font-size: 0.75rem;
+  color: #999;
+  white-space: nowrap;
+  text-align: right;
+  opacity: 0.6;
+}
+
+/* 댓글 작성 버튼 */
 .comment-btn {
   display: block;
   background-color: #4E3CDB;
@@ -172,18 +205,17 @@
   font-weight: 500;
   transition: background-color 0.2s ease;
 }
-
-.comment-content span {
-  flex: 1;
+.comment-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  margin: auto;
 }
+
 
 .comment-btn:hover {
   background-color: #372bc4;
-}
-.comment-date{
-  text-align: right;
-  padding-right: 0.5rem;
-  opacity: 0.25;
 }
 
 /* 뒤로가기 ------------------------------------------------------*/

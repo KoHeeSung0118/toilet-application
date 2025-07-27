@@ -89,16 +89,14 @@ export default function ToiletDetailPage({
         {/* 액션 버튼 그룹 */}
         <div className="btn-group">
           <a
-            href={`/toilet/${id}/keywords?place_name=${encodedName}${
-              from ? `&from=${from}` : ''
-            }`}
+            href={`/toilet/${id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''
+              }`}
           >
             키워드 추가하기
           </a>
           <a
-            href={`/toilet/${id}/rate?place_name=${encodedName}${
-              from ? `&from=${from}` : ''
-            }`}
+            href={`/toilet/${id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''
+              }`}
           >
             별점 추가하기
           </a>
@@ -144,20 +142,17 @@ export default function ToiletDetailPage({
             .map((r) => (
               <div key={r._id} className="comment-item">
                 <div className="comment-content">
-                  <strong className="nickname">{r.nickname}</strong>:{' '}
-                  <span className="comment-text">{r.comment}</span>
+                  <div className="comment-main">
+                    <strong className="nickname">{r.nickname}</strong>
+                    <span className="comment-text">{r.comment}</span>
+                  </div>
 
-                  {/* 작성 시간 */}
-                  <span className="comment-date">
-                    {formatTimeAgo(r.createdAt)}
-                  </span>
-
-                  {r.userId === currentUserId && (
-                    <DeleteCommentButton
-                      toiletId={id}
-                      commentId={r._id}
-                    />
-                  )}
+                  <div className="comment-right">
+                    <span className="comment-date">{formatTimeAgo(r.createdAt)}</span>
+                    {r.userId === currentUserId && (
+                      <DeleteCommentButton toiletId={id} commentId={r._id} />
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -169,9 +164,8 @@ export default function ToiletDetailPage({
       {/* 댓글 작성 버튼 */}
       <a
         className="comment-btn"
-        href={`/toilet/${id}/comment?place_name=${encodedName}${
-          from ? `&from=${from}` : ''
-        }`}
+        href={`/toilet/${id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''
+          }`}
       >
         댓글 추가하기
       </a>
