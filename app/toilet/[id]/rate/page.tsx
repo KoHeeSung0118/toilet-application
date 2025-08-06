@@ -33,11 +33,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const records: RatingRecord[] = toilet.ratingRecords ?? [];
 
-    // 기존 유저 점수 찾기
     const existingIndex = records.findIndex((r: RatingRecord) => r.userId === userId);
 
     if (existingIndex !== -1) {
-      // 수정
       records[existingIndex] = {
         ...records[existingIndex],
         overall,
@@ -47,7 +45,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         createdAt: new Date(),
       };
     } else {
-      // 새로 등록
       records.push({
         userId,
         overall,
@@ -58,7 +55,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // 평균 계산 함수
     const avg = (field: keyof Omit<RatingRecord, 'userId' | 'createdAt'>) =>
       Math.round(
         records.reduce((sum: number, r: RatingRecord) => sum + (r[field] as number), 0) /
