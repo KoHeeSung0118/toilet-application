@@ -1,95 +1,43 @@
-'use client';
+import { headers } from 'next/headers';
+import jwt from 'jsonwebtoken';
+import { connectDB } from '@/util/database';
+import RatingPage from './RatingPage';
 
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import './RatePage.css';
+export type RatingRecord = {
+  userId: string;
+  overall: number;
+  cleanliness: number;
+  facility: number;
+  convenience: number;
+  createdAt: Date;
+};
 
-export default function RatingPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const params = useParams();
-  const id = params?.id as string;
-  const from = searchParams?.get('from') ?? '';
+export default async function RatePage({ params }: { params: { id: string } }) {
+  const cookieHeader = headers().get('cookie') || '';
+  const token = cookieHeader
+    .split('; ')
+    .find((cookie: string) => cookie.startsWith('token='))?.split('=')[1];
 
-  const [placeName, setPlaceName] = useState('불러오는 중...');
-  const [overall, setOverall] = useState(0);
-  const [clean, setClean] = useState(0);
-  const [facility, setFacility] = useState(0);
-  const [convenience, setConvenience] = useState(0);
+  let userId: string | null = null;
+  let existingRating: RatingRecord | null = null;
 
-  useEffect(() => {
-    const fetchToilet = async () => {
-      const res = await fetch(`/api/toilet/${id}`);
-      const data = await res.json();
-      setPlaceName(data.place_name || '이름 없음');
-    };
-    if (id) fetchToilet();
-  }, [id]);
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: string };
+      userId = decoded.userId;
 
-  const handleSubmit = async () => {
-    const res = await fetch(`/api/toilet/${id}/rate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overall, cleanliness: clean, facility, convenience })
-    });
+      const db = (await connectDB).db('toilet_app');
+      const toilet = await db.collection('toilets').findOne({ id: params.id });
 
-    if (res.ok) {
-      router.replace(
-        `/toilet/${id}?place_name=${encodeURIComponent(placeName)}${
-          from ? `&from=${from}` : ''
-        }`
-      );
-      router.refresh();
-    } else {
-      alert('별점 등록에 실패했습니다.');
+      if (toilet?.ratingRecords) {
+        existingRating = (toilet.ratingRecords as RatingRecord[]).find(
+          (r) => r.userId === userId
+        ) ?? null;
+      }
+    } catch (err) {
+      console.error('❌ JWT 해독 또는 DB 조회 실패:', err);
     }
-  };
+  }
 
-  const renderStars = (score: number, setter: (v: number) => void) =>
-    [...Array(5)].map((_, i) => (
-      <span
-        key={i}
-        onClick={() => setter(i + 1)}
-        style={{ color: i < score ? '#F5A623' : '#DDD', fontSize: '24px', cursor: 'pointer' }}
-      >
-        ★
-      </span>
-    ));
-
-  return (
-    <div className="page-container">
-      <h2 className="title">{placeName}</h2>
-
-      <div className="label-row">
-        <label>종합</label>
-        <div className="star-row">{renderStars(overall, setOverall)}</div>
-      </div>
-      <div className="label-row">
-        <label>청결</label>
-        <div className="star-row">{renderStars(clean, setClean)}</div>
-      </div>
-      <div className="label-row">
-        <label>시설</label>
-        <div className="star-row">{renderStars(facility, setFacility)}</div>
-      </div>
-      <div className="label-row">
-        <label>편의</label>
-        <div className="star-row">{renderStars(convenience, setConvenience)}</div>
-      </div>
-
-      <button className="submit-btn" onClick={handleSubmit}>등록 하기</button>
-      <button
-        className="back-btn"
-        onClick={() =>
-          router.replace(
-            `/toilet/${id}?place_name=${encodeURIComponent(placeName)}${
-              from ? `&from=${from}` : ''
-            }`
-          )
-        }
-      >
-        뒤로 가기
-      </button>
-    </div>
-  );
+  return <RatingPage id={params.id} userId={userId} existingRating={existingRating} />;
 }
