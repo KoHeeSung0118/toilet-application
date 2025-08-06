@@ -1,6 +1,8 @@
+// pages/api/toilet/[id]/rate.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectDB } from '@/util/database';
 
+/** 한 사용자-별 별점 레코드 타입 */
 export type RatingRecord = {
   userId: string;
   overall: number;
@@ -13,31 +15,41 @@ export type RatingRecord = {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
+  /* ── 요청 파라미터 검사 ───────────────────────────── */
   const { id } = req.query;
   const { userId, overall, cleanliness, facility, convenience } = req.body;
 
   if (
-    !id || !userId ||
-    overall === undefined || cleanliness === undefined ||
-    facility === undefined || convenience === undefined
+    typeof id !== 'string' ||
+    typeof userId !== 'string' ||
+    typeof overall !== 'number' ||
+    typeof cleanliness !== 'number' ||
+    typeof facility !== 'number' ||
+    typeof convenience !== 'number'
   ) {
     return res.status(400).json({ error: '필수 항목 누락' });
   }
 
+  /* ── DB 접속 ─────────────────────────────────────── */
   const db = (await connectDB).db('toilet_app');
 
   try {
-    const toilet = await db.collection('toilets').findOne({ id });
+    // 화장실 문서 조회 (ratingRecords 필드만 필요)
+    const toilet = await db
+      .collection<{ ratingRecords?: RatingRecord[] }>('toilets')
+      .findOne({ id });
 
     if (!toilet) return res.status(404).json({ error: '화장실 없음' });
 
     const records: RatingRecord[] = toilet.ratingRecords ?? [];
 
-    const existingIndex = records.findIndex((r: RatingRecord) => r.userId === userId);
+    /* ── 기존 사용자 기록 찾기 ─────────────────────── */
+    const index = records.findIndex((r: RatingRecord) => r.userId === userId);
 
-    if (existingIndex !== -1) {
-      records[existingIndex] = {
-        ...records[existingIndex],
+    if (index !== -1) {
+      // 수정
+      records[index] = {
+        ...records[index],
         overall,
         cleanliness,
         facility,
@@ -45,6 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         createdAt: new Date(),
       };
     } else {
+      // 새로 등록
       records.push({
         userId,
         overall,
@@ -55,25 +68,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    /* ── 평균값 계산 ───────────────────────────────── */
     const avg = (field: keyof Omit<RatingRecord, 'userId' | 'createdAt'>) =>
       Math.round(
-        records.reduce((sum: number, r: RatingRecord) => sum + (r[field] as number), 0) /
-        records.length * 10
+        records.reduce((sum, r) => sum + r[field], 0) / records.length * 10
       ) / 10;
 
     const updated = {
       $set: {
         ratingRecords: records,
         cleanliness: avg('cleanliness'),
-        facility: avg('facility'),
-        convenience: avg('convenience'),
+        facility:     avg('facility'),
+        convenience:  avg('convenience'),
         overallRating: avg('overall'),
-      }
+      },
     };
 
+    /* ── DB 업데이트 ───────────────────────────────── */
     await db.collection('toilets').updateOne({ id }, updated);
 
-    return res.status(200).json({ success: true, message: existingIndex !== -1 ? '수정됨' : '등록됨' });
+    return res
+      .status(200)
+      .json({ success: true, message: index !== -1 ? '수정됨' : '등록됨' });
   } catch (err) {
     console.error('🚨 별점 저장 실패:', err);
     return res.status(500).json({ error: '서버 오류' });
