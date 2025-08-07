@@ -5,18 +5,13 @@ import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import './KeywordPage.css';
 
 const KEYWORDS = [
-  '화장실 칸 많음',
-  '화장실 칸 적음',
-  '장애인 화장실',
-  '성별 분리',
-  '비데 설치 되어있음',
-  '휴지 많음',
-  '물 잘나옴',
-  '냄새 좋음'
+  '화장실 칸 많음', '화장실 칸 적음', '장애인 화장실', '성별 분리',
+  '비데 설치 되어있음', '휴지 많음', '물 잘나옴', '냄새 좋음'
 ];
 
 export default function KeywordPage() {
   const [selected, setSelected] = useState<string[]>([]);
+  const [isEdit, setIsEdit] = useState(false);        // ← 추가
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
@@ -24,24 +19,27 @@ export default function KeywordPage() {
   const placeName = searchParams?.get('place_name') ?? '이름 미정';
   const from = searchParams?.get('from') ?? '';
 
+  /* 1) 최초 키워드 읽기 */
   useEffect(() => {
     const fetchKeywords = async () => {
       const res = await fetch(`/api/toilet/${id}`);
       if (!res.ok) return;
       const data = await res.json();
-      if (Array.isArray(data.keywords)) {
+      if (Array.isArray(data.keywords) && data.keywords.length > 0) {
         setSelected(data.keywords);
+        setIsEdit(true);                              // ← 이미 값이 있으면 수정 모드
       }
     };
-    fetchKeywords();
+    if (id) fetchKeywords();
   }, [id]);
 
-  const toggleKeyword = (word: string) => {
+  /* 2) 토글 */
+  const toggleKeyword = (word: string) =>
     setSelected((prev) =>
       prev.includes(word) ? prev.filter((w) => w !== word) : [...prev, word]
     );
-  };
 
+  /* 3) 저장 */
   const handleSubmit = async () => {
     const res = await fetch(`/api/toilet/${id}/keywords`, {
       method: 'POST',
@@ -61,13 +59,15 @@ export default function KeywordPage() {
     }
   };
 
+  /* 4) 렌더 */
   return (
     <div className="page-container">
       <h2 className="title">{placeName}</h2>
+
       <div className="keyword-list">
-        {KEYWORDS.map((word, i) => (
+        {KEYWORDS.map((word) => (
           <button
-            key={i}
+            key={word}
             className={`keyword ${selected.includes(word) ? 'selected' : ''}`}
             onClick={() => toggleKeyword(word)}
           >
@@ -76,7 +76,11 @@ export default function KeywordPage() {
         ))}
       </div>
 
-      <button className="submit-btn" onClick={handleSubmit}>등록 하기</button>
+      {/* 버튼 문구만 isEdit에 따라 변경 */}
+      <button className="submit-btn" onClick={handleSubmit}>
+        {isEdit ? '수정 하기' : '등록 하기'}
+      </button>
+
       <button
         className="back-btn"
         onClick={() =>
