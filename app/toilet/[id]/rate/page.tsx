@@ -1,4 +1,5 @@
-// @ts-nocheck          ← ❶ 이 한 줄로 타입체커 무효화
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* @ts-nocheck */
 
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
