@@ -1,11 +1,13 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* @ts-nocheck */
+
+// app/toilet/[id]/rate/page.tsx
 
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/util/database';
 import RatingPage from './RatingPage';
 
+/** 개별 사용자 평점 레코드 */
 export type RatingRecord = {
   userId: string;
   overall: number;
@@ -15,43 +17,49 @@ export type RatingRecord = {
   createdAt: Date;
 };
 
+/** params 타입: Next 15 PageProps 제한과 100% 호환 */
+type Params = Record<string, string>;
+
 export default async function RatePage(
-  props: { params: { id: string } }             // ❷ 타입 간단 명시
+  { params }: { params: Params }
 ) {
-  /* (1) 쿠키 */
+  /* (1) 쿠키 - Next 15에선 Promise<ReadonlyRequestCookies> */
   const token = (await cookies()).get('token')?.value ?? '';
 
-  /* (2) 기본값 */
+  /* 기본값 */
   let userId: string | null = null;
   let existingRating: RatingRecord | null = null;
 
   if (token) {
     try {
-      /* (3) JWT 해독 */
+      /* (2) JWT 해독 */
       userId = (
         jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: string }
       ).userId;
 
-      /* (4) DB 연결 (connectDB는 Promise<MongoClient>) */
-      const db = (await connectDB).db('toilet_app');
+      /* (3) DB 연결 – connectDB 자체가 Promise<MongoClient> */
+      const client = await connectDB;
+      const db = client.db('toilet_app');
 
-      /* (5) 내 별점 조회 */
+      /* (4) 내 별점 찾기 */
+      type ToiletDoc = { ratingRecords?: RatingRecord[] };
       const toilet = await db
-        .collection<{ ratingRecords?: RatingRecord[] }>('toilets')
-        .findOne({ id: props.params.id });
+        .collection<ToiletDoc>('toilets')
+        .findOne({ id: params.id });
 
       existingRating =
         toilet?.ratingRecords?.find(
-          (r: RatingRecord) => r.userId === userId
+          (r: RatingRecord) => r.userId === userId        // implicit any 제거
         ) ?? null;
     } catch (err) {
       console.error('JWT 해독 또는 DB 조회 실패:', err);
     }
   }
 
+  /* (5) 클라이언트 컴포넌트 렌더 */
   return (
     <RatingPage
-      id={props.params.id}
+      id={params.id}
       userId={userId}
       existingRating={existingRating}
     />
