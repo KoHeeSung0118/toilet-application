@@ -1,6 +1,7 @@
 'use client';
 
 import './DetailPage.css';
+import RequestPaperButton from '@/components/detail/RequestPaperButton';
 import DeleteCommentButton from './DeleteCommentButton';
 import FavoriteButton from '@/components/favorite/FavoriteButton';
 import ClientOnlyBackButton from './ClientOnlyBackButton';
@@ -104,6 +105,13 @@ export default function ToiletDetailPage({
             placeName={toilet.place_name}
             lat={toilet.lat}
             lng={toilet.lng}
+          />
+
+          <RequestPaperButton
+            toiletId={id}
+            lat={toilet.lat}
+            lng={toilet.lng}
+            userId={currentUserId}
           />
         </div>
       </div>

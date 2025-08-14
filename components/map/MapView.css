@@ -1,16 +1,25 @@
+/* 루트 높이 보장 (하지만 전역 스크롤 막지는 않음) */
+html, body, #__next {
+  height: 100%;
+}
+
+/* 페이지 래퍼: 화면에 꽉 차게 + 내부 스크롤 제거 */
 .map-wrapper {
   padding: 1rem;
-  height: 88vh;
+  height: 100dvh;        /* 모바일 주소창 변화 대응 */
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden;       /* 👈 이 래퍼 안에서 스크롤 차단 */
 }
 
+/* 상단 UI: 지도 공간을 압축하지 않도록 고정 */
 .top-ui {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+  flex-shrink: 0;         /* 👈 줄어들지 않게 */
 }
 
 .keyword-filter {
@@ -49,15 +58,27 @@
   background-color: #6b63b6;
 }
 
+/* 지도 컨테이너: 남은 공간 전부 차지 + 내부 절대배치 기준 */
 .map-container {
+  position: relative;
   z-index: 0;
-  flex: 1;
+  flex: 1 1 auto;       /* 남은 공간 모두 차지 */
+  min-height: 25rem;    /* 데스크톱 안전장치 */
+  min-height: 40dvh;    /* 모바일에서도 최소 보장 */
   border-radius: 1rem;
   overflow: hidden;
-  height: 100%;
-  min-height: 25rem;
-  position: relative; /* 내부 절대위치 기준 */
   user-select: none;
+  /* flex 레이아웃에서 자식(지도)이 정상 축소되도록 */
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 실제 지도가 붙는 엘리먼트: 컨테이너 꽉 채우기 */
+#map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* ✅ CustomOverlay 스타일 */
@@ -150,16 +171,15 @@
   background-color: #6b63b6;
 }
 
-/* ✅ Kakao 지도 기본 테두리 제거 */
+/* ✅ Kakao 기본 wrap 테두리 제거 */
 div[class^="wrap"] {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
 }
 
-/* 현재 위치 버튼 */
+/* 현재 위치 버튼: 지도 위 레이어 */
 .loc-btn {
-  z-index: 99999; /* 🔼 다른 마커나 오버레이보다 확실히 위 */
   position: absolute;
   top: 1rem;
   right: 1rem;
@@ -176,9 +196,31 @@ div[class^="wrap"] {
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s ease;
+  z-index: 12000; /* 오버레이보다 위 */
 }
 
 .loc-btn:hover {
   background-color: #f2f2f2;
 }
 
+/* 신호 오버레이: 클릭 통과 (마커 클릭 막지 않음) */
+.pulse-wrapper {
+  width: 20px;
+  height: 20px;
+  transform: translateY(-20px);  /* 마커 높이의 절반만 위로 */
+}
+
+.pulse-signal {
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: rgba(255, 59, 48, 0.95);
+  animation: pulse 1s infinite;
+  box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.6);
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,59,48,0.6); }
+  70% { transform: scale(1.9); box-shadow: 0 0 0 12px rgba(255,59,48,0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,59,48,0); }
+}
