@@ -3,40 +3,35 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import type { WithId } from 'mongodb';
 import { connectDB } from '@/util/database';
 
-/** DB에 저장되는 시그널 문서 타입 */
 type SignalType = 'PAPER_REQUEST';
-
 interface SignalDoc {
   toiletId: string;
   lat: number;
   lng: number;
   userId: string | null;
   type: SignalType;
+  message?: string;     // ✅ 추가
   createdAt: Date;
   expiresAt: Date;
 }
 
-/** 클라이언트로 반환될 활성 시그널 타입 */
 interface ActiveSignal {
   _id: string;
   toiletId: string;
   lat: number;
   lng: number;
-  createdAt: string; // ISO
-  expiresAt: string; // ISO
+  message?: string;     // ✅ 추가
+  createdAt: string;
+  expiresAt: string;
 }
 
 type SuccessRes = { ok: true; items: ActiveSignal[] };
 type ErrorRes = { error: string };
 
-/** 쿼리스트링에서 toiletIds 파싱 (comma-separated) */
 function parseToiletIds(input: string | string[] | undefined): string[] {
   if (!input) return [];
   const s = Array.isArray(input) ? input[0] : input;
-  return s
-    .split(',')
-    .map((v) => v.trim())
-    .filter((v) => v.length > 0);
+  return s.split(',').map((v) => v.trim()).filter((v) => v.length > 0);
 }
 
 export default async function handler(
@@ -58,7 +53,6 @@ export default async function handler(
     const db = (await connectDB).db('toilet');
     const signalsCol = db.collection<SignalDoc>('signals');
 
-    // 만료되지 않은 현재 활성 시그널만 조회
     const docs = await signalsCol
       .find({
         toiletId: { $in: toiletIds },
@@ -69,6 +63,7 @@ export default async function handler(
         toiletId: 1,
         lat: 1,
         lng: 1,
+        message: 1,     // ✅ 포함
         createdAt: 1,
         expiresAt: 1,
       })
@@ -81,6 +76,7 @@ export default async function handler(
       toiletId: d.toiletId,
       lat: d.lat,
       lng: d.lng,
+      message: d.message,
       createdAt: d.createdAt.toISOString(),
       expiresAt: d.expiresAt.toISOString(),
     }));
