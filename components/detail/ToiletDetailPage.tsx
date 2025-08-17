@@ -83,28 +83,7 @@ export default function ToiletDetailPage({
   };
 
   // 활성 신호 조회
-  const [activeSignals, setActiveSignals] = useState<ActiveSignal[]>([]);
-
-const fetchActive = useCallback(async () => {
-  try {
-    const u = new URL('/api/signal/active', window.location.origin);
-    u.searchParams.set('toiletIds', id);
-    if (currentUserId) u.searchParams.set('currentUserId', currentUserId);
-
-    const resp = await fetch(u.toString(), { cache: 'no-store' });
-    if (!resp.ok) return;
-    const data = (await resp.json()) as { ok?: true; items?: ActiveSignal[] };
-    setActiveSignals(data.items ?? []);
-  } catch {
-    // ignore
-  }
-}, [id, currentUserId]);
-
-useEffect(() => {
-  fetchActive();
-  const t = setInterval(fetchActive, 15000);
-  return () => clearInterval(t);
-}, [fetchActive]);
+  
   const timeLeft = (expiresAt: string) => {
     const ms = new Date(expiresAt).getTime() - Date.now();
     if (ms <= 0) return '만료';
