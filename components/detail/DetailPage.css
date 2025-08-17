@@ -328,6 +328,7 @@
   flex: 1 1 auto;            /* ✅ 가로 공간을 유연하게 차지하고 줄어들 수 있음 */
   min-width: 0;              /* ✅ 실제로 줄어들 수 있게 */
   margin-right: 0.5rem;
+  margin: auto 0;
 
   /* ▼ 줄바꿈 관련 핵심 수정 */
   white-space: normal;       /* ✅ nowrap 제거 → 줄바꿈 허용 */
@@ -390,6 +391,7 @@
 }
 
 .action-btn {
+  margin: auto 0;
   background-color: #867cd0;
   color: #fff;
   padding: 0.625rem 1rem;

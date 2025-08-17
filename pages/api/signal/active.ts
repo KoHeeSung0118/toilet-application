@@ -1,18 +1,19 @@
-// pages/api/signal/active.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { WithId } from 'mongodb';
 import { connectDB } from '@/util/database';
+import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 
 type SignalType = 'PAPER_REQUEST';
 interface SignalDoc {
   toiletId: string;
   lat: number;
   lng: number;
-  userId: string | null;
+  userId: string;
   type: SignalType;
-  message?: string;     // ✅ 추가
+  message?: string;
   createdAt: Date;
   expiresAt: Date;
+  cancelledAt?: Date;
 }
 
 interface ActiveSignal {
@@ -20,9 +21,10 @@ interface ActiveSignal {
   toiletId: string;
   lat: number;
   lng: number;
-  message?: string;     // ✅ 추가
+  message?: string;
   createdAt: string;
   expiresAt: string;
+  isMine: boolean;
 }
 
 type SuccessRes = { ok: true; items: ActiveSignal[] };
@@ -43,47 +45,48 @@ export default async function handler(
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  try {
-    const toiletIds = parseToiletIds(req.query.toiletIds);
-    if (toiletIds.length === 0) {
-      return res.status(200).json({ ok: true, items: [] });
-    }
+  const currentUserId = getUserFromTokenInAPI(req);
+  if (!currentUserId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const now = new Date();
-    const db = (await connectDB).db('toilet');
-    const signalsCol = db.collection<SignalDoc>('signals');
-
-    const docs = await signalsCol
-      .find({
-        toiletId: { $in: toiletIds },
-        type: 'PAPER_REQUEST',
-        expiresAt: { $gt: now },
-      })
-      .project<WithId<SignalDoc>>({
-        toiletId: 1,
-        lat: 1,
-        lng: 1,
-        message: 1,     // ✅ 포함
-        createdAt: 1,
-        expiresAt: 1,
-      })
-      .sort({ createdAt: -1 })
-      .limit(200)
-      .toArray();
-
-    const items: ActiveSignal[] = docs.map((d) => ({
-      _id: d._id.toHexString(),
-      toiletId: d.toiletId,
-      lat: d.lat,
-      lng: d.lng,
-      message: d.message,
-      createdAt: d.createdAt.toISOString(),
-      expiresAt: d.expiresAt.toISOString(),
-    }));
-
-    return res.status(200).json({ ok: true, items });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    return res.status(500).json({ error: message });
+  const toiletIds = parseToiletIds(req.query.toiletIds);
+  if (toiletIds.length === 0) {
+    return res.status(200).json({ ok: true, items: [] });
   }
+
+  const now = new Date();
+  const db = (await connectDB).db('toilet');
+  const col = db.collection<SignalDoc>('signals');
+
+  const docs = await col
+    .find({
+      toiletId: { $in: toiletIds },
+      type: 'PAPER_REQUEST',
+      expiresAt: { $gt: now },
+      cancelledAt: { $exists: false },
+    })
+    .project<WithId<SignalDoc>>({
+      toiletId: 1,
+      lat: 1,
+      lng: 1,
+      message: 1,
+      createdAt: 1,
+      expiresAt: 1,
+      userId: 1,
+    })
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .toArray();
+
+  const items: ActiveSignal[] = docs.map((d) => ({
+    _id: d._id.toHexString(),
+    toiletId: d.toiletId,
+    lat: d.lat,
+    lng: d.lng,
+    message: d.message,
+    createdAt: d.createdAt.toISOString(),
+    expiresAt: d.expiresAt.toISOString(),
+    isMine: d.userId === currentUserId,
+  }));
+
+  return res.status(200).json({ ok: true, items });
 }

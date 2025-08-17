@@ -5,43 +5,34 @@ type Props = {
   toiletId: string;
   lat: number;
   lng: number;
-  userId?: string | null;
+  onSent?: () => void; // ✅ 성공 후 부모 갱신 콜백
 };
 
-export default function RequestPaperButton({ toiletId, lat, lng, userId }: Props) {
+export default function RequestPaperButton({ toiletId, lat, lng, onSent }: Props) {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string>('');
-
-  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
-    // 120자 제한 (서버와 동일)
-    const v = e.target.value.slice(0, 120);
-    setMessage(v);
-  }
+  const [msg, setMsg] = useState('');
 
   async function handleClick() {
     if (loading) return;
     setLoading(true);
     try {
-      const body = {
-        toiletId,
-        lat,
-        lng,
-        userId,
-        message: message.trim() || null, // ✅ 메모 전달
-      };
       const res = await fetch('/api/signal/request-paper', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          toiletId,
+          lat,
+          lng,
+          message: msg.trim().slice(0, 120),
+        }),
       });
-      const data: { ok?: true; error?: string } = await res.json();
-
-      if (!res.ok || !data?.ok) {
-        alert(data?.error ?? '요청 실패');
-      } else {
-        alert('휴지 요청이 전송되었어요!');
-        setMessage(''); // 전송 성공 시 입력 초기화
+      const data = (await res.json()) as { ok?: true; error?: string };
+      if (!res.ok || !data.ok) {
+        alert(data.error ?? '요청 실패');
+        return;
       }
+      setMsg('');
+      onSent?.(); // ✅ 성공 즉시 부모 목록 갱신
     } catch {
       alert('네트워크 오류');
     } finally {
@@ -52,24 +43,15 @@ export default function RequestPaperButton({ toiletId, lat, lng, userId }: Props
   return (
     <>
       <input
+        className="action-input"
         type="text"
-        className="action-input"       // ✅ 스타일은 DetailPage.css에
-        placeholder="여기에 요청 메모를 입력하세요."
-        value={message}
-        onChange={onChange}
+        placeholder="요청 메모 (최대 120자)"
+        value={msg}
+        onChange={(e) => setMsg(e.target.value)}
         maxLength={120}
-        aria-label="요청 메모 입력"
       />
-      <button
-        type="button"
-        className="action-btn"
-        onClick={handleClick}
-        disabled={loading}
-        aria-busy={loading}
-        aria-label="휴지 요청"
-        title="휴지 요청"
-      >
-        {loading ? '요청 중…' : '휴지 요청'}
+      <button className="action-btn" onClick={handleClick} disabled={loading}>
+        {loading ? '요청 중...' : '휴지 요청'}
       </button>
     </>
   );
