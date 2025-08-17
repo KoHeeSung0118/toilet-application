@@ -1,6 +1,5 @@
 // pages/api/signal/request-paper.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import type { WithId } from 'mongodb';
 import { connectDB } from '@/util/database';
 import { getSocketServer } from '@/util/socketServer';
 
