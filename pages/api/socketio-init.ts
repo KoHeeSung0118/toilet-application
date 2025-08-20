@@ -5,12 +5,8 @@ import type { Socket as NetSocket } from 'net';
 import type { Server as IOServer } from 'socket.io';
 import { initSocketServer } from '@/util/socketServer';
 
-export const config = { api: { bodyParser: false } };
-
 type ResWithSocket = NextApiResponse & {
-  socket: NetSocket & {
-    server: HTTPServer & { io?: IOServer };
-  };
+  socket: NetSocket & { server: HTTPServer & { io?: IOServer } };
 };
 
 export default function handler(req: NextApiRequest, res: ResWithSocket) {
@@ -18,14 +14,12 @@ export default function handler(req: NextApiRequest, res: ResWithSocket) {
     res.setHeader('Allow', ['GET', 'HEAD']);
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-
   const server = res.socket?.server;
-  if (!server) return res.status(500).json({ error: 'No HTTP server instance' });
+  if (!server) return res.status(500).json({ error: 'No server' });
 
   if (!server.io) {
-    server.io = initSocketServer(server); // socket.io 서버를 /api/socket 경로에 부착
-    console.log('✅ Socket.IO initialized');
+    server.io = initSocketServer(server);
+    // console.log('✅ Socket.IO initialized');
   }
-
   return res.status(200).json({ ok: true });
 }

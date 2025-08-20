@@ -1,42 +1,41 @@
 // util/socketServer.ts
 import type { Server as HTTPServer } from 'http';
-import { Server as IOServer } from 'socket.io';
+import { Server as IOServer, type ServerOptions } from 'socket.io';
 
-// 🔑 HMR/라우트 간 공유를 위해 전역에 보관
-declare global {
-  // eslint-disable-next-line no-var
-  var _io: IOServer | undefined;
-}
+let ioInstance: IOServer | null = null;
 
-/** 서버에 Socket.IO를 1회 부착하고 전역에 저장 */
-export function initSocketServer(httpServer: HTTPServer): IOServer {
-  if (global._io) return global._io;
+export function initSocketServer(server: HTTPServer): IOServer {
+  if (ioInstance) return ioInstance;
 
-  const io = new IOServer(httpServer, { path: '/api/socket' });
+  const opts: Partial<ServerOptions> = {
+    path: '/api/socket',
+    cors: { origin: '*', methods: ['GET', 'POST'] },
+  };
 
-  io.on('connection', (socket) => {
-    console.log('🔌 connected:', socket.id);
+  ioInstance = new IOServer(server, opts);
 
+  ioInstance.on('connection', (socket) => {
+    // join/leave 방
     socket.on('join_toilet', (toiletId: string) => {
-      const room = `toilet:${toiletId}`;
-      socket.join(room);
-      console.log('🟢 JOIN', socket.id, '->', room);
+      if (typeof toiletId === 'string' && toiletId.length > 0) {
+        socket.join(`toilet:${toiletId}`);
+        // console.log(`🟢 JOIN ${socket.id} -> toilet:${toiletId}`);
+      }
     });
-
     socket.on('leave_toilet', (toiletId: string) => {
-      const room = `toilet:${toiletId}`;
-      socket.leave(room);
-      console.log('🔴 LEAVE', socket.id, '-/->', room);
+      if (typeof toiletId === 'string' && toiletId.length > 0) {
+        socket.leave(`toilet:${toiletId}`);
+        // console.log(`🔴 LEAVE ${socket.id} -/-> toilet:${toiletId}`);
+      }
     });
   });
 
-  global._io = io; // ✅ 전역에 저장
-  return io;
+  return ioInstance;
 }
 
-/** 어디서든 같은 io 인스턴스를 가져오기 */
 export function getSocketServer(): IOServer {
-  const io = global._io;
-  if (!io) throw new Error('Socket server not initialized');
-  return io;
+  if (!ioInstance) {
+    throw new Error('Socket server not initialized');
+  }
+  return ioInstance;
 }

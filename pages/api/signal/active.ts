@@ -1,22 +1,8 @@
+// pages/api/signal/active.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import type { WithId } from 'mongodb';
 import { connectDB } from '@/util/database';
-import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 
-type SignalType = 'PAPER_REQUEST';
-interface SignalDoc {
-  toiletId: string;
-  lat: number;
-  lng: number;
-  userId: string;
-  type: SignalType;
-  message?: string;
-  createdAt: Date;
-  expiresAt: Date;
-  cancelledAt?: Date;
-}
-
-interface ActiveSignal {
+type ActiveItem = {
   _id: string;
   toiletId: string;
   lat: number;
@@ -24,60 +10,38 @@ interface ActiveSignal {
   message?: string;
   createdAt: string;
   expiresAt: string;
-  isMine: boolean;
-}
+  requesterId: string;
+  acceptedBy?: string | null;
+};
 
-type SuccessRes = { ok: true; items: ActiveSignal[] };
-type ErrorRes = { error: string };
+type ApiResp = { ok?: true; items?: ActiveItem[]; error?: string };
 
-function parseToiletIds(input: string | string[] | undefined): string[] {
-  if (!input) return [];
-  const s = Array.isArray(input) ? input[0] : input;
-  return s.split(',').map((v) => v.trim()).filter((v) => v.length > 0);
-}
+export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResp>) {
+  if (req.method !== 'GET') return res.status(405).end();
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<SuccessRes | ErrorRes>
-) {
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', ['GET']);
-    return res.status(405).json({ error: 'Method Not Allowed' });
+  const idsCsv = req.query.toiletIds;
+  if (!idsCsv || typeof idsCsv !== 'string') {
+    return res.status(400).json({ error: 'toiletIds query is required' });
   }
+  const toiletIds = idsCsv.split(',').map((s) => s.trim()).filter(Boolean);
+  if (toiletIds.length === 0) return res.status(200).json({ ok: true, items: [] });
 
-  const currentUserId = getUserFromTokenInAPI(req);
-  if (!currentUserId) return res.status(401).json({ error: 'Unauthorized' });
-
-  const toiletIds = parseToiletIds(req.query.toiletIds);
-  if (toiletIds.length === 0) {
-    return res.status(200).json({ ok: true, items: [] });
-  }
+  const db = (await connectDB).db('toilet');
+  const signals = db.collection('signals');
 
   const now = new Date();
-  const db = (await connectDB).db('toilet');
-  const col = db.collection<SignalDoc>('signals');
 
-  const docs = await col
+  const docs = await signals
     .find({
       toiletId: { $in: toiletIds },
-      type: 'PAPER_REQUEST',
       expiresAt: { $gt: now },
-      cancelledAt: { $exists: false },
-    })
-    .project<WithId<SignalDoc>>({
-      toiletId: 1,
-      lat: 1,
-      lng: 1,
-      message: 1,
-      createdAt: 1,
-      expiresAt: 1,
-      userId: 1,
+      type: 'PAPER_REQUEST',
     })
     .sort({ createdAt: -1 })
-    .limit(200)
+    .limit(100)
     .toArray();
 
-  const items: ActiveSignal[] = docs.map((d) => ({
+  const items: ActiveItem[] = docs.map((d) => ({
     _id: d._id.toHexString(),
     toiletId: d.toiletId,
     lat: d.lat,
@@ -85,7 +49,8 @@ export default async function handler(
     message: d.message,
     createdAt: d.createdAt.toISOString(),
     expiresAt: d.expiresAt.toISOString(),
-    isMine: d.userId === currentUserId,
+    requesterId: d.requesterId,
+    acceptedBy: d.acceptedBy ?? null,
   }));
 
   return res.status(200).json({ ok: true, items });

@@ -391,6 +391,7 @@
 }
 
 .action-btn {
+  white-space: nowrap;
   margin: auto 0;
   background-color: #867cd0;
   color: #fff;
