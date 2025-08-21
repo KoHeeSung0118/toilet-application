@@ -5,47 +5,75 @@ import { connectDB } from '@/util/database';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
 
-type ApiResp = { ok?: true; error?: string };
+type ApiResp =
+  | { ok: true; id: string; acceptExpiresAt: string }
+  | { error: string };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResp>) {
-  if (req.method !== 'POST') return res.status(405).end();
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ApiResp>
+) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const userId = getUserFromTokenInAPI(req);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { signalId } = req.body as { signalId: string };
-  if (!signalId) return res.status(400).json({ error: 'signalId required' });
+  const { signalId } = req.body as { signalId?: string };
+  if (!signalId || !ObjectId.isValid(signalId)) {
+    return res.status(400).json({ error: 'Invalid signalId' });
+  }
 
   const db = (await connectDB).db('toilet');
   const signals = db.collection('signals');
 
-  const _id = new ObjectId(signalId);
   const now = new Date();
+  const acceptExpiresAt = new Date(now.getTime() + 30 * 60 * 1000); // 30분
 
-  const doc = await signals.findOne({ _id });
-  if (!doc) return res.status(404).json({ error: 'Not found' });
-  if (doc.expiresAt <= now) return res.status(410).json({ error: 'Already expired' });
-
-  // 이미 다른 사람이 수락했다면 409
-  if (doc.acceptedBy && doc.acceptedBy !== userId) {
-    return res.status(409).json({ error: 'Already accepted by someone else' });
-  }
-
-  // 수락 → acceptedBy 갱신 + 30분 타이머
-  const newExpires = new Date(Date.now() + 30 * 60 * 1000);
-  await signals.updateOne(
-    { _id },
-    { $set: { acceptedBy: userId, expiresAt: newExpires } }
+  // 아직 만료되지 않았고, 다른 사람이 이미 수락하지 않은 글만 수락 가능
+  const result = await signals.updateOne(
+    {
+      _id: new ObjectId(signalId),
+      expiresAt: { $gt: now },
+      $or: [{ acceptedByUserId: null }, { acceptedByUserId: { $exists: false } }],
+    },
+    {
+      $set: {
+        acceptedByUserId: userId,
+        acceptedAt: now,
+        expiresAt: acceptExpiresAt, // 30분으로 타이머 갱신
+      },
+    }
   );
 
-  try {
-    const io = getSocketServer();
-    io.to(`toilet:${doc.toiletId}`).to('toilet:ALL').emit('paper_accept', {
-      _id: signalId,
-      acceptedBy: userId,
-      expiresAt: newExpires.toISOString(),
-    });
-  } catch {}
+  if (result.matchedCount === 0) {
+    return res.status(404).json({ error: 'Not found or already expired' });
+  }
+  if (result.modifiedCount === 0) {
+    // 조건은 맞았는데 변경이 안 됨 → 경쟁 상태 등
+    return res.status(409).json({ error: 'Already accepted by someone' });
+  }
 
-  return res.status(200).json({ ok: true });
+  // 소켓 브로드캐스트(해당 화장실 방 + ALL)
+  try {
+    const doc = await signals.findOne({ _id: new ObjectId(signalId) });
+    const io = getSocketServer();
+    const toiletId = (doc?.toiletId ?? '') as string;
+
+    io.to(`toilet:${toiletId}`).emit('paper_accepted', {
+      _id: signalId,
+      toiletId,
+      acceptedByUserId: userId,
+      acceptExpiresAt: acceptExpiresAt.toISOString(),
+    });
+    io.to('toilet:ALL').emit('paper_accepted', {
+      _id: signalId,
+      toiletId,
+      acceptedByUserId: userId,
+      acceptExpiresAt: acceptExpiresAt.toISOString(),
+    });
+  } catch {
+    // 소켓 초기화 전이면 무시
+  }
+
+  return res.status(200).json({ ok: true, id: signalId, acceptExpiresAt: acceptExpiresAt.toISOString() });
 }

@@ -1,4 +1,3 @@
-// components/detail/ToiletDetailPage.tsx
 'use client';
 
 import './DetailPage.css';
@@ -8,10 +7,8 @@ import FavoriteButton from '@/components/favorite/FavoriteButton';
 import ClientOnlyBackButton from './ClientOnlyBackButton';
 import DirectionsButton from '@/components/detail/DirectionsButton';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import io, { Socket } from 'socket.io-client';
 
-/* --------------------------------------------------------
- * 타입 정의 (MongoDB _id 유지)
- * ------------------------------------------------------*/
 interface Toilet {
   _id: string;
   place_name: string;
@@ -35,7 +32,7 @@ interface ToiletDetailPageProps {
   id: string;
   placeName?: string;
   from?: string;
-  currentUserId: string | null;
+  currentUserId: string; // 로그인 강제 가정
   toilet: Toilet;
 }
 
@@ -45,28 +42,10 @@ interface ActiveSignal {
   lat: number;
   lng: number;
   message?: string;
-  createdAt: string; // ISO
-  expiresAt: string; // ISO
-  requesterId: string;
-  acceptedBy?: string | null;
-}
-
-/* 유틸 */
-function formatTimeAgo(date: string | Date): string {
-  const now = Date.now();
-  const then = new Date(date).getTime();
-  const diffSec = Math.floor((now - then) / 1000);
-  if (diffSec < 60) return `${diffSec}초 전`;
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}분 전`;
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour}시간 전`;
-  const diffDay = Math.floor(diffHour / 24);
-  if (diffDay < 30) return `${diffDay}일 전`;
-  const diffMonth = Math.floor(diffDay / 30);
-  if (diffMonth < 12) return `${diffMonth}개월 전`;
-  const diffYear = Math.floor(diffDay / 365);
-  return `${diffYear}년 전`;
+  userId: string;                  // 요청자
+  acceptedByUserId?: string | null;// 구원자
+  createdAt: string;
+  expiresAt: string;
 }
 
 export default function ToiletDetailPage({
@@ -77,188 +56,126 @@ export default function ToiletDetailPage({
   toilet,
 }: ToiletDetailPageProps) {
   const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
-  const encodedName = useMemo(
-    () => encodeURIComponent(placeName || toilet.place_name || ''),
-    [placeName, toilet.place_name]
-  );
+  const encodedName = encodeURIComponent(placeName || toilet.place_name || '');
 
   const [activeSignals, setActiveSignals] = useState<ActiveSignal[]>([]);
-  const [nowTick, setNowTick] = useState<number>(Date.now());
-  const [busy, setBusy] = useState<string | null>(null);
 
+  // 남은 시간 포맷
+  const timeLeft = (expiresAt: string) => {
+    const ms = new Date(expiresAt).getTime() - Date.now();
+    if (ms <= 0) return '만료';
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return m > 0 ? `${m}분 ${rs}초 남음` : `${rs}초 남음`;
+  };
+
+  // 1초 간격 강제 리렌더(남은 시간 업데이트용)
+  const tick = useMemo(() => ({ v: 0 }), []);
+  useEffect(() => {
+    const t = setInterval(() => {
+      tick.v = tick.v + 1;
+      setActiveSignals((prev) => [...prev]);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [tick]);
+
+  // Active fetch (의존성/아이덴티티 고정)
   const fetchActive = useCallback(async () => {
-    let resp: Response;
     try {
-      resp = await fetch(`/api/signal/active?toiletIds=${encodeURIComponent(id)}`, { cache: 'no-store' });
-    } catch (e) {
-      console.error('active fetch error', e);
-      return;
+      const resp = await fetch(`/api/signal/active?toiletIds=${encodeURIComponent(id)}`, { cache: 'no-store' });
+      if (!resp.ok) return;
+      const data = (await resp.json()) as { ok?: true; items?: ActiveSignal[] };
+      setActiveSignals(data.items ?? []);
+    } catch {
+      // ignore
     }
-    if (!resp.ok) return;
-    const data = (await resp.json()) as { ok?: true; items?: ActiveSignal[] };
-    setActiveSignals(data.items ?? []);
   }, [id]);
 
+  // 소켓 연결 + 방 조인 + 이벤트 수신 시 즉시 갱신
   useEffect(() => {
+    let s: Socket | null = null;
+
+    (async () => {
+      await fetch('/api/socketio-init').catch(() => {});
+      s = io({ path: '/api/socket', transports: ['websocket'] });
+      s.on('connect', () => {
+        s!.emit('join_toilet', id);
+      });
+
+      // 모든 관련 이벤트에서 리스트 리패치
+      s.on('paper_request', fetchActive);
+      s.on('paper_accepted', fetchActive);
+      s.on('paper_accept_canceled', fetchActive);
+    })();
+
+    // 최초 진입 시 1회 로드
     fetchActive();
-  }, [fetchActive]);
 
-  // 1초마다 타이머 UI 갱신
-  useEffect(() => {
-    const t = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
+    return () => {
+      if (s) {
+        s.off('paper_request', fetchActive);
+        s.off('paper_accepted', fetchActive);
+        s.off('paper_accept_canceled', fetchActive);
+        s.emit('leave_toilet', id);
+        s.disconnect();
+      }
+    };
+  }, [id, fetchActive]);
 
-  // 20초마다 데이터 재조회
-  useEffect(() => {
-    const t = setInterval(fetchActive, 20000);
-    return () => clearInterval(t);
-  }, [fetchActive]);
-
-  const timeLeft = useCallback(
-    (expiresAt: string) => {
-      const ms = new Date(expiresAt).getTime() - nowTick;
-      if (ms <= 0) return '만료';
-      const s = Math.floor(ms / 1000);
-      if (s < 60) return `${s}초 남음`;
-      const m = Math.floor(s / 60);
-      const rs = s % 60;
-      return `${m}분 ${rs}초 남음`;
-    },
-    [nowTick]
-  );
-
-  // 갈게요(수락)
-  async function handleAccept(signalId: string) {
-    if (!currentUserId) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
-    setBusy(signalId);
-    let res: Response;
-    try {
-      res = await fetch('/api/signal/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signalId }),
-      });
-    } catch (e) {
-      console.error('accept network error', e);
-      alert('네트워크 오류로 수락에 실패했어요.');
-      setBusy(null);
-      return;
-    }
-
-    if (res.ok) {
-      setActiveSignals((prev) => prev.map((s) => (s._id === signalId ? { ...s, acceptedBy: currentUserId } : s)));
-      setBusy(null);
-      return;
-    }
-    if (res.status === 409) {
-      alert('이미 다른 분이 수락했어요.');
-      await fetchActive();
-      setBusy(null);
-      return;
-    }
-    if (res.status === 410) {
-      alert('요청이 만료되었어요.');
-      await fetchActive();
-      setBusy(null);
-      return;
-    }
-
-    const data = await res.json().catch(() => ({}));
-    alert((data as { error?: string })?.error ?? '수락에 실패했어요.');
-    setBusy(null);
+  // 표시 텍스트
+  function acceptedLabel(sig: ActiveSignal): string {
+    if (!sig.acceptedByUserId) return '';
+    if (sig.acceptedByUserId === currentUserId) return '내가 가는 중';
+    const short = sig.acceptedByUserId.slice(-4);
+    return `구원자: ****${short}`;
   }
 
-  // 갈게요 취소
-  async function handleUnaccept(signalId: string) {
-    if (!currentUserId) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
-    setBusy(signalId);
-    let res: Response;
-    try {
-      res = await fetch('/api/signal/unaccept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signalId }),
-      });
-    } catch (e) {
-      console.error('unaccept network error', e);
-      alert('네트워크 오류로 취소에 실패했어요.');
-      setBusy(null);
-      return;
-    }
+  const isMine = (sig: ActiveSignal) => sig.userId === currentUserId;
+  const isAcceptedByMe = (sig: ActiveSignal) => sig.acceptedByUserId === currentUserId;
 
-    if (res.ok) {
-      setActiveSignals((prev) => prev.map((s) => (s._id === signalId ? { ...s, acceptedBy: null } : s)));
-      setBusy(null);
+  // 수락 / 수락 취소
+  async function accept(signalId: string) {
+    const r = await fetch('/api/signal/accept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signalId }),
+    });
+    if (!r.ok) {
+      const e = (await r.json().catch(() => ({}))) as { error?: string };
+      alert(e.error ?? '수락 실패');
       return;
     }
-
-    const data = await res.json().catch(() => ({}));
-    alert((data as { error?: string })?.error ?? '취소에 실패했어요.');
     await fetchActive();
-    setBusy(null);
   }
 
-  // 내 요청 취소(삭제)
-  async function handleCancelMyRequest(signalId: string) {
-    if (!currentUserId) {
-      alert('로그인이 필요합니다.');
+  async function cancelAccept(signalId: string) {
+    const r = await fetch('/api/signal/accept-cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signalId }),
+    });
+    if (!r.ok) {
+      const e = (await r.json().catch(() => ({}))) as { error?: string };
+      alert(e.error ?? '취소 실패');
       return;
     }
-    if (!confirm('요청을 취소할까요?')) return;
-
-    setBusy(signalId);
-    let res: Response;
-    try {
-      res = await fetch('/api/signal/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signalId }),
-      });
-    } catch (e) {
-      console.error('cancel network error', e);
-      alert('네트워크 오류로 취소에 실패했어요.');
-      setBusy(null);
-      return;
-    }
-
-    if (res.ok) {
-      setActiveSignals((prev) => prev.filter((s) => s._id !== signalId));
-      setBusy(null);
-      return;
-    }
-
-    const data = await res.json().catch(() => ({}));
-    alert((data as { error?: string })?.error ?? '취소에 실패했어요.');
     await fetchActive();
-    setBusy(null);
   }
-
-  // “갈게요”가 눌린 요청은 요청자/구원자만 보이도록 필터
-  const filteredSignals = activeSignals.filter((s) => {
-    if (!s.acceptedBy) return true; // 아직 오픈
-    return s.requesterId === currentUserId || s.acceptedBy === currentUserId;
-  });
 
   return (
     <div className="detail-page">
       <ClientOnlyBackButton />
 
-      {/* 헤더 */}
       <div className="detail-header">
         <div className="favorite-wrapper">
           <FavoriteButton toiletId={id} placeName={toilet.place_name} />
         </div>
         <h2>{toilet.place_name}</h2>
-        <div className="rating">{'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})</div>
+        <div className="rating">
+          {'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})
+        </div>
 
-        {/* 액션 버튼 그룹 */}
         <div className="btn-group">
           <a href={`/toilet/${id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>키워드 추가하기</a>
           <a href={`/toilet/${id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>별점 추가하기</a>
@@ -266,76 +183,47 @@ export default function ToiletDetailPage({
         </div>
       </div>
 
-      {/* 활성 요청 박스 */}
-      {filteredSignals.length > 0 && (
+      {activeSignals.length > 0 && (
         <div className="active-requests">
           <div className="active-title">요청 신호</div>
           <ul className="active-list">
-            {filteredSignals.map((s) => {
-              const isMine = currentUserId != null && s.requesterId === currentUserId;
-              const iAmHelper = currentUserId != null && s.acceptedBy === currentUserId;
-              const open = !s.acceptedBy;
-
-              return (
-                <li key={s._id} className="active-item">
-                  <div className="active-msg">
-                    {s.message && s.message.trim().length > 0 ? s.message : '메시지 없음'}
+            {activeSignals.map((s) => (
+              <li key={s._id} className="active-item">
+                <div className="active-msg">
+                  {s.message ?? '메시지 없음'}
+                  {s.acceptedByUserId && (
+                    <div style={{ color: '#4E3CDB', fontWeight: 600, marginTop: 4 }}>
+                      {acceptedLabel(s)}
+                    </div>
+                  )}
+                </div>
+                <div className="active-meta">
+                  {timeLeft(s.expiresAt)}
+                  <div style={{ marginTop: 6, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    {!s.acceptedByUserId && !isMine(s) && (
+                      <button className="action-btn" onClick={() => accept(s._id)}>갈께요</button>
+                    )}
+                    {isAcceptedByMe(s) && (
+                      <button className="action-btn" onClick={() => cancelAccept(s._id)}>갈께요 취소</button>
+                    )}
+                    {/* 요청자가 자기 글을 지우는 버튼은 기존 구현을 재사용 */}
                   </div>
-                  <div className="active-meta">{timeLeft(s.expiresAt)}</div>
-
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    {isMine && (
-                      <button
-                        className="action-btn"
-                        onClick={() => void handleCancelMyRequest(s._id)}
-                        disabled={busy === s._id}
-                        title="내 요청 취소"
-                      >
-                        요청 취소
-                      </button>
-                    )}
-                    {!isMine && open && (
-                      <button
-                        className="action-btn"
-                        onClick={() => void handleAccept(s._id)}
-                        disabled={busy === s._id}
-                        title="요청 수락"
-                      >
-                        갈게요
-                      </button>
-                    )}
-                    {!isMine && iAmHelper && (
-                      <button
-                        className="action-btn"
-                        onClick={() => void handleUnaccept(s._id)}
-                        disabled={busy === s._id}
-                        title="수락 취소"
-                      >
-                        취소
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
+                </div>
+              </li>
+            ))}
           </ul>
         </div>
       )}
 
-      {/* ✅ 휴지 요청: 독립 카드 */}
+      {/* 독립 요청 카드 */}
       <div className="request-card">
         <div className="request-title">휴지 요청 보내기</div>
-        <PaperRequestForm
-          toiletId={id}
-          lat={toilet.lat}
-          lng={toilet.lng}
-          userId={currentUserId}
-          onSent={fetchActive}
-        />
+        <div className="request-row">
+          <PaperRequestForm toiletId={id} lat={toilet.lat} lng={toilet.lng} userId={currentUserId} />
+        </div>
         <div className="request-hint">예: 남자 화장실 2번째 칸입니다. (최대 120자)</div>
       </div>
 
-      {/* 사용자들의 평균 점수 */}
       <div className="tags-box">
         사용자들의 평균 점수
         <div>청결: {toilet.cleanliness}점</div>
@@ -343,7 +231,6 @@ export default function ToiletDetailPage({
         <div>편의: {toilet.convenience}점</div>
       </div>
 
-      {/* 키워드 */}
       {toilet.keywords?.length ? (
         <div className="keyword-box">
           {toilet.keywords.map((kw, idx) => (
@@ -356,7 +243,6 @@ export default function ToiletDetailPage({
         </div>
       )}
 
-      {/* 댓글 */}
       <div className="reviews">
         <h3>댓글</h3>
         {toilet.reviews?.length ? (
@@ -369,10 +255,28 @@ export default function ToiletDetailPage({
                     <strong className="nickname">{r.nickname}</strong>
                     <span className="comment-text">{r.comment}</span>
                   </div>
-
                   <div className="comment-right">
-                    <span className="comment-date">{formatTimeAgo(r.createdAt)}</span>
-                    {r.userId === currentUserId && <DeleteCommentButton toiletId={id} commentId={r._id} />}
+                    <span className="comment-date">
+                      {(() => {
+                        const now = Date.now();
+                        const then = new Date(r.createdAt).getTime();
+                        const diffSec = Math.floor((now - then) / 1000);
+                        if (diffSec < 60) return `${diffSec}초 전`;
+                        const diffMin = Math.floor(diffSec / 60);
+                        if (diffMin < 60) return `${diffMin}분 전`;
+                        const diffHour = Math.floor(diffMin / 60);
+                        if (diffHour < 24) return `${diffHour}시간 전`;
+                        const diffDay = Math.floor(diffHour / 24);
+                        if (diffDay < 30) return `${diffDay}일 전`;
+                        const diffMonth = Math.floor(diffDay / 30);
+                        if (diffMonth < 12) return `${diffMonth}개월 전`;
+                        const diffYear = Math.floor(diffDay / 365);
+                        return `${diffYear}년 전`;
+                      })()}
+                    </span>
+                    {r.userId === currentUserId && (
+                      <DeleteCommentButton toiletId={id} commentId={r._id} />
+                    )}
                   </div>
                 </div>
               </div>
@@ -382,7 +286,6 @@ export default function ToiletDetailPage({
         )}
       </div>
 
-      {/* 댓글 작성 버튼 */}
       <a className="comment-btn" href={`/toilet/${id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
         댓글 추가하기
       </a>

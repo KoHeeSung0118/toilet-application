@@ -7,28 +7,24 @@ import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
 import io, { Socket } from 'socket.io-client';
 
-// ✅ Header를 클라이언트 전용으로 로드(서버/클라 경계 충돌 방지)
 const Header = dynamic(() => import('@/components/common/Header'), { ssr: false });
 
-/* ----------------------------- 상수 ----------------------------- */
 const FILTERS = [
   '화장실 칸 많음', '화장실 칸 적음', '장애인 화장실', '성별 분리',
   '비데 설치 되어있음', '휴지 많음', '물 잘나옴', '냄새 좋음',
 ] as const;
 
-/* ----------------------------- 타입 ----------------------------- */
 interface KakaoPlace { id: string; place_name: string; x: string; y: string; }
 interface ToiletDbData { overallRating?: number; reviews?: { user: string; comment: string }[]; keywords?: string[]; }
 interface EnrichedToilet extends KakaoPlace { overallRating: number; reviews: { user: string; comment: string }[]; keywords: string[]; }
 interface Toilet extends EnrichedToilet { lat: number; lng: number; }
 
-/** 실시간/캐치업 공용 페이로드 */
 type PaperSignalEvent = {
   _id: string;
   toiletId: string;
   lat: number;
   lng: number;
-  expiresAt: string; // ISO
+  expiresAt: string;
 };
 type ActiveSignal = {
   _id: string;
@@ -39,19 +35,16 @@ type ActiveSignal = {
   expiresAt: string;
 };
 
-/* ---- 전역 kakao 타입은 건드리지 않고, 필요한 메서드만 구조 단언용 보조 타입 ---- */
 type MapWithGetCenter = kakao.maps.Map & { getCenter(): kakao.maps.LatLng };
 type MapWithPanTo = kakao.maps.Map & { panTo(pos: kakao.maps.LatLng): void };
 type MarkerWithSetPosition = kakao.maps.Marker & { setPosition(pos: kakao.maps.LatLng): void };
 type LatLngWithGet = kakao.maps.LatLng & { getLat(): number; getLng(): number };
 
-/* ----------------------------- 유틸 ----------------------------- */
 const toNum = (v?: string | number | null) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
 
-/* --------------------------- 컴포넌트 --------------------------- */
 export default function MapView() {
   const router = useRouter();
   const pathname = usePathname();
@@ -64,11 +57,8 @@ export default function MapView() {
   const idleTimerRef = useRef<number | null>(null);
   const currentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
 
-  // 웹소켓
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
-
-  // 표시 중인 신호(중복 방지)
   const activeOverlayMapRef = useRef<Map<string, kakao.maps.CustomOverlay>>(new Map());
 
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
@@ -77,55 +67,51 @@ export default function MapView() {
 
   const queryKeyword = searchParams?.get('query');
 
-  /* -------- 페이지 진입 시 바디 스크롤 잠금 -------- */
+  // 화면 스크롤 잠금 (지도를 꽉 차게)
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  /* -------- 오버레이 추가 (중복/표시시간/zIndex 보장 + 클릭 통과) -------- */
+  // 펄스 오버레이 추가 (중복 방지 + 마커 클릭 방해 X)
   const addPulseOverlay = useCallback((payload: PaperSignalEvent | ActiveSignal) => {
     if (!mapRef.current) return;
     if (activeOverlayMapRef.current.has(payload._id)) return;
 
     const pos = new window.kakao.maps.LatLng(payload.lat, payload.lng);
-
-    // 클릭 차단 방지를 위해 wrapper로 감싸서 pointer-events: none 적용
-    const wrapper = document.createElement('div');
-    wrapper.className = 'pulse-wrapper';
-
-    const dot = document.createElement('div');
-    dot.className = 'pulse-signal';
-    wrapper.appendChild(dot);
+    const el = document.createElement('div');
+    el.className = 'pulse-wrapper';
+    el.innerHTML = '<div class="pulse-signal"></div>';
 
     const overlay = new window.kakao.maps.CustomOverlay({
       position: pos,
-      content: (() => {
-        const wrap = document.createElement('div');
-        wrap.className = 'pulse-wrapper';
-        wrap.innerHTML = '<div class="pulse-signal"></div>';
-        return wrap;
-      })(),
-      xAnchor: 0.7,   // 가운데
-      yAnchor: 0.7,     // 바닥 기준(마커 tip과 동일하게)
-      zIndex: 1,      // 마커 아래
-      clickable: false
+      content: el,
+      xAnchor: 0.5,
+      yAnchor: 0.5,
+      zIndex: 1,       // 마커(기본 3)보다 낮게
+      clickable: false // 클릭 이벤트 자체를 가지지 않게
     });
     overlay.setMap(mapRef.current);
-
     activeOverlayMapRef.current.set(payload._id, overlay);
 
-    let msLeft = new Date(payload.expiresAt).getTime() - Date.now();
-    if (msLeft < 5000) msLeft = 120000; // 최소 5초~2분 표시
-
+    const msLeft = Math.max(new Date(payload.expiresAt).getTime() - Date.now(), 5000);
     window.setTimeout(() => {
       overlay.setMap(null);
       activeOverlayMapRef.current.delete(payload._id);
     }, msLeft);
   }, []);
 
-  /* -------- 활성 신호 캐치업 -------- */
+  // 펄스 제거(수락/취소 등)
+  const removePulseOverlay = useCallback((signalId: string) => {
+    const ov = activeOverlayMapRef.current.get(signalId);
+    if (ov) {
+      ov.setMap(null);
+      activeOverlayMapRef.current.delete(signalId);
+    }
+  }, []);
+
+  // 현재 마커들에 대한 활성 신호 캐치업
   const fetchActiveSignals = useCallback(async (toiletIds: string[]) => {
     if (!toiletIds.length) return;
     try {
@@ -145,15 +131,14 @@ export default function MapView() {
         });
       });
     } catch {
-      // 네트워크 오류는 무시
+      // ignore
     }
   }, [addPulseOverlay]);
 
-  /* -------- 마커 그리기 (+ room 동기화 + 캐치업) -------- */
+  // 마커 그리기 + 룸 동기화 + 캐치업
   const drawMarkers = useCallback((toilets: Toilet[]) => {
     if (!mapRef.current) return;
 
-    // 기존 마커 제거
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
@@ -166,7 +151,7 @@ export default function MapView() {
           '/marker/toilet-icon.png',
           new window.kakao.maps.Size(40, 40)
         ),
-        zIndex: 10, // 오버레이를 위로
+        zIndex: 10,
       });
       markersRef.current.push(marker);
 
@@ -212,7 +197,7 @@ export default function MapView() {
       });
     });
 
-    // room join/leave 동기화
+    // 룸 join/leave
     if (socketRef.current) {
       const nextIds = new Set(toilets.map((t) => t.id));
       toilets.forEach((t) => {
@@ -229,11 +214,11 @@ export default function MapView() {
       }
     }
 
-    // 현재 보이는 화장실들에 대한 활성 신호 캐치업
+    // 캐치업
     fetchActiveSignals(toilets.map((t) => t.id));
   }, [fetchActiveSignals, pathname, router]);
 
-  /* -------- 화장실 검색 -------- */
+  // 화장실 검색
   const searchToilets = useCallback(async (lat: number, lng: number, shouldCenter = true) => {
     const ps = new window.kakao.maps.services.Places();
 
@@ -272,7 +257,7 @@ export default function MapView() {
     );
   }, [drawMarkers, setToiletList]);
 
-  /* -------- 주소 검색 -------- */
+  // 주소 검색
   const handleQuerySearch = useCallback((keyword: string) => {
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
@@ -291,7 +276,7 @@ export default function MapView() {
     if (queryKeyword) handleQuerySearch(queryKeyword);
   }, [queryKeyword, handleQuerySearch]);
 
-  /* -------- 지도 초기화 + 소켓 연결 -------- */
+  // 지도 초기화 + 소켓 연결
   useEffect(() => {
     const s = document.createElement('script');
     s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services';
@@ -308,7 +293,7 @@ export default function MapView() {
           mapRef.current = new window.kakao.maps.Map(mapEl, { center, level: 3 });
           currentPosRef.current = center;
 
-          // 소켓 서버 초기화 → 연결 (race 방지)
+          // 소켓 서버 초기화 → 연결
           (async () => {
             const resp = await fetch('/api/socketio-init', { cache: 'no-store' });
             if (!resp.ok) {
@@ -320,12 +305,14 @@ export default function MapView() {
 
             socket.on('connect', () => {
               console.log('✅ socket connected', socket.id);
-              socket.emit('join_toilet', 'ALL'); // 개발 중 항상 수신(프로덕션에서는 제거 가능)
+              // 개발용 ALL 구독은 제거하고, 보이는 마커별 join으로만 운용
             });
             socket.on('connect_error', (err) => console.log('❌ connect_error', err.message));
-            socket.on('paper_request', (p: PaperSignalEvent) => {
-              console.log('📨 paper_request', p);
-              addPulseOverlay(p);
+
+            socket.on('paper_request', (p: PaperSignalEvent) => addPulseOverlay(p));
+            socket.on('paper_accepted', (p: { _id: string }) => removePulseOverlay(p._id));
+            socket.on('paper_accept_canceled', () => {
+              // 취소 시 다시 깜빡이고 싶다면 active 캐치업을 트리거하거나 서버에서 재발행 이벤트를 추가하세요.
             });
           })();
 
@@ -350,11 +337,13 @@ export default function MapView() {
 
     return () => {
       socketRef.current?.off('paper_request');
+      socketRef.current?.off('paper_accepted');
+      socketRef.current?.off('paper_accept_canceled');
       socketRef.current?.disconnect();
     };
-  }, [queryKeyword, searchToilets, handleQuerySearch, addPulseOverlay]);
+  }, [queryKeyword, searchToilets, handleQuerySearch, addPulseOverlay, removePulseOverlay]);
 
-  /* -------- 현재 위치 마커 -------- */
+  // 현재 위치 마커
   useEffect(() => {
     let currentMarker: kakao.maps.Marker | null = null;
     const watchId = navigator.geolocation.watchPosition(({ coords }) => {
@@ -382,7 +371,7 @@ export default function MapView() {
     }
   };
 
-  /* -------- 필터 변경 시 마커 리프레시 -------- */
+  // 필터 변경 시 마커 리프레시
   useEffect(() => {
     drawMarkers(
       selectedFilters.length
@@ -391,7 +380,6 @@ export default function MapView() {
     );
   }, [selectedFilters, allToilets, drawMarkers]);
 
-  /* ====== 렌더 ====== */
   return (
     <div className="map-wrapper">
       <Header />
@@ -428,7 +416,6 @@ export default function MapView() {
         )}
       </div>
 
-      {/* 지도를 꽉 채우고, 위치 버튼은 오버레이로 */}
       <div className="map-container">
         <div id="map" />
         <button type="button" className="loc-btn" onClick={handleLocateClick}>
