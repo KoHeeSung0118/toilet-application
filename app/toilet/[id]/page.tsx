@@ -1,56 +1,57 @@
 // app/toilet/[id]/page.tsx
-import { headers, cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
-import jwt from 'jsonwebtoken';
 import ToiletDetailPage from '@/components/detail/ToiletDetailPage';
+import { getUserIdFromToken } from '@/lib/getUserIdFromToken';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-/* 동적 세그먼트와 쿼리 타입 */
-type RouteParams  = { id: string };
-type SearchParams = { place_name?: string; from?: string };
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ place_name?: string; from?: string } | undefined>;
+};
 
-export default async function Page({
-  params,
-  searchParams,
-}: {
-  params: Promise<RouteParams>;          // ❗ Promise 형태로 선언
-  searchParams: Promise<SearchParams>;   // ❗
-}) {
-  /* 0. 동기 값 고정 → 먼저 await */
-  const { id }               = await params;
-  const { place_name = '', from = '' } = await searchParams;
+// 서버에서 API 호출할 때는 절대 URL을 사용해야 합니다.
+async function fetchToilet(baseUrl: string, id: string, place_name?: string) {
+  const qs = place_name ? `?place_name=${encodeURIComponent(place_name)}` : '';
+  const url = `${baseUrl}/api/toilet/${id}${qs}`;
+  const resp = await fetch(url, { cache: 'no-store' });
+  if (!resp.ok) {
+    throw new Error(`Failed to load toilet: ${resp.status}`);
+  }
+  return resp.json();
+}
 
-  /* 1. 호스트 정보 */
-  const hostHeader = await headers();
-  const host       = hostHeader.get('host') ?? '';
-  const protocol   = host.startsWith('localhost') ? 'http' : 'https';
-  const baseURL    = `${protocol}://${host}`;
+export default async function Page({ params, searchParams }: PageProps) {
+  // ✅ Next 15 규칙: 반드시 await 후 사용
+  const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  const place_name = sp.place_name ?? '';
+  const from = sp.from ?? '';
 
-  /* 2. 로그인 사용자 */
-  const token = (await cookies()).get('token')?.value ?? null;
-  let currentUserId: string | null = null;
-  if (token) {
-    try {
-      currentUserId = (
-        jwt.verify(token, process.env.JWT_SECRET as string) as { userId: string }
-      ).userId;
-    } catch (e) {
-      console.error('[JWT Decode Error]', e);
-    }
+  // ✅ 로그인 강제: 서버에서 non-null 보장
+  const uid = await getUserIdFromToken();
+  if (!uid) {
+    redirect('/login');
   }
 
-  /* 3. 화장실 데이터 fetch */
-  const query = place_name ? `?place_name=${encodeURIComponent(place_name)}` : '';
-  const res   = await fetch(`${baseURL}/api/toilet/${id}${query}`, { cache: 'no-store' });
-  if (!res.ok) return notFound();
-  const toilet = await res.json();
+  // ✅ 절대 URL 만들기 (프록시/배포 환경 고려)
+  const h = await headers();
+  const host =
+    h.get('x-forwarded-host') ??
+    h.get('host') ??
+    (process.env.VERCEL_URL ?? 'localhost:3000');
+  const proto =
+    h.get('x-forwarded-proto') ??
+    (process.env.NODE_ENV === 'production' ? 'https' : 'http');
+  const baseUrl = `${proto}://${host}`;
 
-  /* 4. 렌더 */
+  const toilet = await fetchToilet(baseUrl, id, place_name);
+
   return (
     <ToiletDetailPage
       id={id}
       placeName={place_name}
       from={from}
-      currentUserId={currentUserId}
+      currentUserId={uid}
       toilet={toilet}
     />
   );
