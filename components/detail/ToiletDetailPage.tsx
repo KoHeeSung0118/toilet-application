@@ -7,7 +7,7 @@ import FavoriteButton from '@/components/favorite/FavoriteButton';
 import ClientOnlyBackButton from './ClientOnlyBackButton';
 import DirectionsButton from '@/components/detail/DirectionsButton';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import io, { Socket } from 'socket.io-client';
+import io from 'socket.io-client';
 
 interface Toilet {
   _id: string;
@@ -32,11 +32,11 @@ interface ToiletDetailPageProps {
   id: string;
   placeName?: string;
   from?: string;
-  currentUserId: string; // 로그인 강제 상태라 null 없음
+  currentUserId: string; // 로그인 강제
   toilet: Toilet;
 }
 
-/** 이 파일 안에서만 쓰는 활성 신호 타입 — 중복 import/선언 금지! */
+/** 활성 신호 */
 type ActiveSignal = {
   _id: string;
   toiletId: string;
@@ -61,7 +61,6 @@ export default function ToiletDetailPage({
   const encodedName = encodeURIComponent(placeName || toilet.place_name || '');
 
   const [activeSignals, setActiveSignals] = useState<ActiveSignal[]>([]);
-  const [socket, setSocket] = useState<Socket | null>(null);
 
   // 남은 시간 포맷
   const timeLeft = (expiresAt: string) => {
@@ -83,7 +82,7 @@ export default function ToiletDetailPage({
     return () => clearInterval(t);
   }, [tick]);
 
-  // 활성 신호 조회 (의존성 안전)
+  // 활성 신호 조회
   const fetchActive = useCallback(async () => {
     try {
       const resp = await fetch(`/api/signal/active?toiletIds=${encodeURIComponent(id)}`, { cache: 'no-store' });
@@ -111,8 +110,6 @@ export default function ToiletDetailPage({
       s.on('paper_accept_canceled', refetch);
       s.on('paper_request_canceled', refetch);
 
-      setSocket(s);
-
       return () => {
         s.off('paper_request', refetch);
         s.off('paper_accepted', refetch);
@@ -124,7 +121,7 @@ export default function ToiletDetailPage({
     });
   }, [id, fetchActive]);
 
-  // “갈께요”
+  // 갈께요
   async function accept(signalId: string) {
     const r = await fetch('/api/signal/accept', {
       method: 'POST',
@@ -139,7 +136,7 @@ export default function ToiletDetailPage({
     await fetchActive();
   }
 
-  // “갈께요 취소”
+  // 갈께요 취소
   async function cancelAccept(signalId: string) {
     const r = await fetch('/api/signal/accept-cancel', {
       method: 'POST',
@@ -154,7 +151,7 @@ export default function ToiletDetailPage({
     await fetchActive();
   }
 
-  // “요청 취소”(내 글)
+  // 요청 취소(내 글)
   async function cancelRequest(signalId: string) {
     const r = await fetch('/api/signal/cancel', {
       method: 'POST',
@@ -216,25 +213,23 @@ export default function ToiletDetailPage({
                   )}
                 </div>
 
-                <div className="active-meta">
-                  {timeLeft(s.expiresAt)}
+                {/* ✅ 남은 시간(왼쪽) + 버튼들(오른쪽) 한 줄 배치 */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                  <span className="active-meta">{timeLeft(s.expiresAt)}</span>
 
-                  <div style={{ marginTop: 6, display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                    {/* 다른 사람 글 + 수락자 없음 → 갈께요 */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {!s.acceptedByUserId && !isMine(s) && (
                       <button type="button" className="action-btn" onClick={() => accept(s._id)}>
                         갈께요
                       </button>
                     )}
 
-                    {/* 내가 수락한 글 → 갈께요 취소 */}
                     {isAcceptedByMe(s) && (
                       <button type="button" className="action-btn" onClick={() => cancelAccept(s._id)}>
                         갈께요 취소
                       </button>
                     )}
 
-                    {/* 내 글(만료 전) → 요청 취소 */}
                     {isMine(s) && new Date(s.expiresAt).getTime() > Date.now() && (
                       <button
                         type="button"
@@ -256,7 +251,14 @@ export default function ToiletDetailPage({
       <div className="request-card">
         <div className="request-title">휴지 요청 보내기</div>
         <div className="request-row">
-          <PaperRequestForm toiletId={id} lat={toilet.lat} lng={toilet.lng} userId={currentUserId} />
+          {/* ✅ 전송 직후 상세화면 즉시 반영 */}
+          <PaperRequestForm
+            toiletId={id}
+            lat={toilet.lat}
+            lng={toilet.lng}
+            userId={currentUserId}
+            onSubmitted={fetchActive}
+          />
         </div>
         <div className="request-hint">예: 남자 화장실 2번째 칸입니다. (최대 120자)</div>
       </div>
