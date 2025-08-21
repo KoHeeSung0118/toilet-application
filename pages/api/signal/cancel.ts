@@ -1,49 +1,38 @@
-// pages/api/signal/cancel.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { connectDB } from '@/util/database';
-import { getSocketServer } from '@/util/socketServer';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
+import { getSocketServer } from '@/util/socketServer';
 
-type ApiResp = { ok?: true } | { error: string };
+type Resp = { ok: true } | { error: string };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResp>) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<Resp>) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const userId = getUserFromTokenInAPI(req);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { signalId } = req.body as { signalId?: string };
-  if (!signalId || !ObjectId.isValid(signalId)) {
-    return res.status(400).json({ error: 'Invalid signalId' });
-  }
+  const { signalId } = req.body as { signalId: string };
+  if (!signalId) return res.status(400).json({ error: 'Missing signalId' });
 
   const db = (await connectDB).db('toilet');
   const signals = db.collection('signals');
 
-  const sig = await signals.findOne<{ _id: ObjectId; toiletId: string; userId: string; expiresAt: Date }>({
-    _id: new ObjectId(signalId),
-  });
-
+  const sig = await signals.findOne({ _id: new ObjectId(signalId) });
   if (!sig) return res.status(404).json({ error: 'Not found' });
-  if (sig.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+  if (sig.userId !== userId) return res.status(403).json({ error: 'Not your request' });
 
-  // 이미 만료된 경우도 취소 처리 응답은 OK로 맞추고 조용히 반환할 수 있음
-  // 여기서는 만료 여부와 관계없이 상태만 갱신
-  await signals.updateOne(
-    { _id: sig._id },
-    {
-      $set: { status: 'canceled', expiresAt: new Date() },
-      $unset: { acceptedByUserId: '' },
-    }
-  );
+  const result = await signals.deleteOne({ _id: new ObjectId(signalId) });
+  if (result.deletedCount === 0) return res.status(409).json({ error: 'Cancel failed' });
 
   try {
     const io = getSocketServer();
-    io.to(`toilet:${sig.toiletId}`).emit('paper_request_canceled', { _id: signalId });
-  } catch {
-    // socket 서버가 없으면 무시
-  }
+    const room = `toilet:${String(sig.toiletId)}`;
+    io.to(room).emit('paper_canceled', {
+      signalId,
+      toiletId: String(sig.toiletId),
+    });
+  } catch {}
 
   return res.status(200).json({ ok: true });
 }
