@@ -6,7 +6,7 @@ import DeleteCommentButton from './DeleteCommentButton';
 import FavoriteButton from '@/components/favorite/FavoriteButton';
 import ClientOnlyBackButton from './ClientOnlyBackButton';
 import DirectionsButton from '@/components/detail/DirectionsButton';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
 
 interface Toilet {
