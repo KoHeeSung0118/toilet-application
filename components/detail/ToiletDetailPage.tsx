@@ -6,7 +6,7 @@ import DeleteCommentButton from './DeleteCommentButton';
 import FavoriteButton from '@/components/favorite/FavoriteButton';
 import ClientOnlyBackButton from './ClientOnlyBackButton';
 import DirectionsButton from '@/components/detail/DirectionsButton';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
 
 interface Toilet {
@@ -90,8 +90,8 @@ export default function ToiletDetailPage({
     return `구원자: ****${short}`;
   };
 
-  // 서버 상태 가져오기
-  const fetchActive = async () => {
+  // 서버 상태 가져오기 (deps에 넣기 위해 useCallback)
+  const fetchActive = useCallback(async () => {
     try {
       const resp = await fetch(`/api/signal/active?toiletIds=${encodeURIComponent(id)}`, { cache: 'no-store' });
       if (!resp.ok) return;
@@ -100,9 +100,9 @@ export default function ToiletDetailPage({
     } catch {
       /* ignore */
     }
-  };
+  }, [id]);
 
-  // 소켓 연결: 모든 관련 이벤트에서 강제 refetch + (가능하면) 낙관적 보정
+  // 소켓 연결: 모든 관련 이벤트에서 강제 refetch + 낙관적 보정
   useEffect(() => {
     let cancelled = false;
 
@@ -114,25 +114,22 @@ export default function ToiletDetailPage({
       socketRef.current = s;
 
       s.on('connect', () => {
-        // 화장실 방 + 사용자 개인 방에 조인(서버가 지원하면)
         s.emit('join_toilet', id);
         s.emit('join_user', currentUserId);
       });
 
       const refetch = () => fetchActive();
 
-      // 알려진 이벤트들
       s.on('paper_request', refetch);
       s.on('paper_accepted', refetch);
       s.on('paper_accept_canceled', refetch);
       s.on('paper_canceled', refetch);
       s.on('signals_changed', refetch);
 
-      // 이름이 달라도 동작하도록 onAny 보정
+      // 이름이 다르더라도 대응
       s.onAny((event: string, payload: unknown) => {
         const e = event.toLowerCase();
         if (e.includes('paper') || e.includes('signal') || e.includes('accept') || e.includes('cancel')) {
-          // 낙관적 반영(가능할 때만)
           const p = payload as { signalId?: string; acceptedByUserId?: string | null } | undefined;
           if (p?.signalId) {
             setActiveSignals((prev) =>
@@ -143,7 +140,6 @@ export default function ToiletDetailPage({
               )
             );
           }
-          // 서버 진실값 동기화
           refetch();
         }
       });
@@ -152,13 +148,8 @@ export default function ToiletDetailPage({
     fetchActive();
     boot();
 
-    // 탭 포커스 시 최신화
-    const onFocus = () => fetchActive();
-    window.addEventListener('focus', onFocus);
-
     return () => {
       cancelled = true;
-      window.removeEventListener('focus', onFocus);
       const s = socketRef.current;
       if (s) {
         s.emit('leave_toilet', id);
@@ -167,14 +158,14 @@ export default function ToiletDetailPage({
         s.disconnect();
       }
     };
-  }, [id, currentUserId]);
+  }, [id, currentUserId, fetchActive]);
 
-  // 활성 신호가 있으면 3초 폴링(보정)
+  // 소켓이 불안정하거나 서버 이벤트명이 달라도 따라잡도록: 활성 신호가 있으면 3초 폴링
   useEffect(() => {
     if (activeSignals.length === 0) return;
     const t = setInterval(fetchActive, 3000);
     return () => clearInterval(t);
-  }, [activeSignals.length]);
+  }, [activeSignals.length, fetchActive]);
 
   // 수락/취소(낙관적 → API → 실패 시 롤백)
   async function accept(signalId: string) {
@@ -234,7 +225,7 @@ export default function ToiletDetailPage({
     fetchActive();
   }
 
-  // 시간 포맷(댓글용)
+  // 시간 포맷
   const formatTimeAgo = (date: string | Date) => {
     const now = Date.now();
     const then = new Date(date).getTime();
@@ -251,12 +242,6 @@ export default function ToiletDetailPage({
     const diffYear = Math.floor(diffDay / 365);
     return `${diffYear}년 전`;
   };
-
-  // ✅ 수락된 카드 필터: 요청자/구원자만 볼 수 있게
-  const visibleSignals = activeSignals.filter((s) => {
-    if (!s.acceptedByUserId) return true; // 아직 미수락 → 모두 볼 수 있음
-    return isMine(s) || isAcceptedByMe(s); // 수락됨 → 요청자/구원자만 볼 수 있음
-  });
 
   return (
     <div className="detail-page">
@@ -280,11 +265,11 @@ export default function ToiletDetailPage({
       </div>
 
       {/* 활성 요청 박스 */}
-      {visibleSignals.length > 0 && (
+      {activeSignals.length > 0 && (
         <div className="active-requests">
           <div className="active-title">요청 신호</div>
           <ul className="active-list">
-            {visibleSignals.map((s) => (
+            {activeSignals.map((s) => (
               <li key={s._id} className="active-item">
                 <div className="active-msg">
                   {s.message ?? '메시지 없음'}
@@ -294,7 +279,7 @@ export default function ToiletDetailPage({
                 </div>
 
                 <div className="active-meta" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {/* 남은 시간 → 버튼 왼쪽으로 이동 */}
+                  {/* 남은 시간 → 버튼 왼쪽 */}
                   <span>{timeLeft(s.expiresAt)}</span>
 
                   {/* 요청자: 본인 글이면 요청 취소 버튼 */}

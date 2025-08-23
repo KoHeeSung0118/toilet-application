@@ -1,4 +1,3 @@
-// components/map/MapView.tsx
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -49,11 +48,9 @@ type ActiveSignal = {
   expiresAt: string;
 };
 
-/* ---- 카카오 보조 타입(전역 kakao를 수정하지 않고 구조 타이핑) ---- */
+/* ---- 카카오 보조 타입 (구조 타이핑) ---- */
 type MapWithGetCenter = kakao.maps.Map & { getCenter(): kakao.maps.LatLng };
 type MapWithPanTo = kakao.maps.Map & { panTo(pos: kakao.maps.LatLng): void };
-type LatLngBoundsLike = { contain: (latlng: kakao.maps.LatLng) => boolean };
-type MapWithBounds = kakao.maps.Map & { getBounds(): LatLngBoundsLike };
 type LatLngGettable = kakao.maps.LatLng & { getLat(): number; getLng(): number };
 type MarkerWithSetPosition = kakao.maps.Marker & { setPosition(pos: kakao.maps.LatLng): void };
 type SocketWithCleanup = Socket & { __cleanup?: () => void };
@@ -130,7 +127,7 @@ export default function MapView() {
   const { setToiletList } = useToilet();
 
   const mapRef = useRef<kakao.maps.Map | null>(null);
-  const markersByIdRef = useRef<Map<String, kakao.maps.Marker>>(new Map());
+  const markersByIdRef = useRef<Map<string, kakao.maps.Marker>>(new Map());
   const currentPosRef = useRef<kakao.maps.LatLng | null>(null);
   const currentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
 
@@ -221,7 +218,7 @@ export default function MapView() {
 
     // 제거: 사라진 마커 제거
     for (const [id, m] of markersByIdRef.current.entries()) {
-      if (!nextIds.has(id as string)) {
+      if (!nextIds.has(id)) {
         m.setMap(null);
         markersByIdRef.current.delete(id);
       }
@@ -239,7 +236,7 @@ export default function MapView() {
         });
         markersByIdRef.current.set(place.id, marker);
 
-        // ✅ 배포에서 파일이 있을 때만 이미지 입히기 (없으면 기본 마커 유지)
+        // 배포에서 파일이 있을 때만 이미지 입히기 (없으면 기본 마커 유지)
         void setMarkerImageIfExists(marker, '/marker/toilet-icon.png', new window.kakao.maps.Size(40, 40));
 
         // 오버레이
@@ -262,7 +259,7 @@ export default function MapView() {
           clickable: false,
         });
 
-        // ✅ 마커 클릭 시: 위치로 panTo + 오버레이 열기
+        // ✅ 마커 클릭 시: 해당 위치로 panTo 후 오버레이 표시
         window.kakao.maps.event.addListener(marker, 'click', () => {
           (map as MapWithPanTo).panTo(pos);
           if (currentOverlayRef.current && currentOverlayRef.current !== overlay) {
@@ -289,14 +286,12 @@ export default function MapView() {
 
     // room join/leave 동기화
     if (socketRef.current) {
-      // join
       toilets.forEach(t => {
         if (!joinedRoomsRef.current.has(t.id)) {
           socketRef.current!.emit('join_toilet', t.id);
           joinedRoomsRef.current.add(t.id);
         }
       });
-      // leave
       for (const id of Array.from(joinedRoomsRef.current)) {
         if (!nextIds.has(id)) {
           socketRef.current.emit('leave_toilet', id);
@@ -392,7 +387,7 @@ export default function MapView() {
             socketRef.current = socket;
 
             const reSync = () => {
-              const ids = Array.from(markersByIdRef.current.keys()).map(String);
+              const ids = Array.from(markersByIdRef.current.keys());
               fetchActiveSignals(ids);
             };
 
@@ -445,7 +440,10 @@ export default function MapView() {
       });
     })();
 
-    // cleanup (스냅샷으로 경고 제거)
+    // ⚠ cleanup 경고 해결: 마운트 시점의 참조를 캡처해서 사용
+    const overlayMapAtMount = overlayMapRef.current;
+    const markersMapAtMount = markersByIdRef.current;
+
     return () => {
       canceled = true;
 
@@ -453,13 +451,13 @@ export default function MapView() {
       if (sref?.__cleanup) sref.__cleanup();
       else socketRef.current?.disconnect();
 
-      const overlaysSnapshot = Array.from(overlayMapRef.current.values());
+      const overlaysSnapshot = Array.from(overlayMapAtMount.values());
       overlaysSnapshot.forEach(ov => ov.setMap(null));
-      overlayMapRef.current.clear();
+      overlayMapAtMount.clear();
 
-      const markersSnapshot = Array.from(markersByIdRef.current.values());
+      const markersSnapshot = Array.from(markersMapAtMount.values());
       markersSnapshot.forEach(m => m.setMap(null));
-      markersByIdRef.current.clear();
+      markersMapAtMount.clear();
     };
   }, [queryKeyword, searchToilets, handleQuerySearch, fetchActiveSignals]);
 
@@ -476,9 +474,8 @@ export default function MapView() {
         currentMarker = new window.kakao.maps.Marker({
           map: mapRef.current,
           position: latLng,
-          zIndex: 9999, // 기본 마커로 우선 표시
+          zIndex: 9999,
         });
-        // 파일 있으면만 아이콘 적용
         void setMarkerImageIfExists(currentMarker, '/marker/location-icon.png', new window.kakao.maps.Size(36, 36));
       } else {
         (currentMarker as MarkerWithSetPosition).setPosition(latLng);
