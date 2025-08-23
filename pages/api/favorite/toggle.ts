@@ -46,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const client = await connectDB;
-  const db = client.db('toilet_app'); // ✅ 프로젝트 DB명과 일치 확인
+  const db = client.db('toilet_app'); // 프로젝트 DB명과 일치 확인
   const users = db.collection<UserDoc>('users');
 
   // favorites만 가져오기
@@ -66,8 +66,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 화장실 메타 저장: 없으면 upsert
     if (toilet && typeof toilet === 'object') {
-      // id 키만 제거한 새 객체 생성
-      const { id, ...rest } = toilet;
+      // id 키만 제거(변수 미사용 없이 안전하게)
+      const rest: Record<string, unknown> = { ...toilet };
+      delete rest.id;
 
       const toilets = db.collection<ToiletMeta>('toilets');
       await toilets.updateOne(
@@ -75,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         {
           $setOnInsert: {
             id: toiletId,
-            place_name: toilet.place_name || '이름 미정',
+            place_name: typeof toilet.place_name === 'string' ? toilet.place_name : '이름 미정',
             ...rest, // id 제외한 나머지 필드만 저장
           },
         },
