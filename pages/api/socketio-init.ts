@@ -1,25 +1,19 @@
 // pages/api/socketio-init.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { Server as HTTPServer } from 'http';
-import type { Socket as NetSocket } from 'net';
-import type { Server as IOServer } from 'socket.io';
-import { initSocketServer } from '@/util/socketServer';
+import { attachSocketServer, getSocketServer } from '@/util/socketServer';
 
 type ResWithSocket = NextApiResponse & {
-  socket: NetSocket & { server: HTTPServer & { io?: IOServer } };
+  socket: {
+    server: HTTPServer;
+  };
 };
 
-export default function handler(req: NextApiRequest, res: ResWithSocket) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.setHeader('Allow', ['GET', 'HEAD']);
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
-  const server = res.socket?.server;
-  if (!server) return res.status(500).json({ error: 'No server' });
-
-  if (!server.io) {
-    server.io = initSocketServer(server);
-    // console.log('✅ Socket.IO initialized');
-  }
+export default function handler(_req: NextApiRequest, res: NextApiResponse) {
+  const r = res as ResWithSocket;
+  // HTTP 서버에 실제로 1회만 attach
+  attachSocketServer(r.socket.server);
+  // 인스턴스 보장
+  getSocketServer();
   return res.status(200).json({ ok: true });
 }
