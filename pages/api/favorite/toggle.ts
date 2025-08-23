@@ -66,8 +66,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 화장실 메타 저장: 없으면 upsert
     if (toilet && typeof toilet === 'object') {
-      // id 중복 방지를 위해 스프레드에서 제거
-      const { id: _ignored, ...rest } = toilet;
+      // id 키만 제거한 새 객체 생성
+      const { id, ...rest } = toilet;
 
       const toilets = db.collection<ToiletMeta>('toilets');
       await toilets.updateOne(
