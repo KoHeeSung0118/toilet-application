@@ -179,6 +179,7 @@ export default function MapView() {
       });
     });
 
+    // 방 동기화
     if (socketRef.current) {
       const nextIds = new Set(toilets.map((t) => t.id));
       toilets.forEach((t) => {
@@ -195,6 +196,7 @@ export default function MapView() {
       }
     }
 
+    // 활성 신호 캐치업
     fetchActiveSignals(toilets.map((t) => t.id));
   }, [fetchActiveSignals, pathname, router]);
 
@@ -275,6 +277,7 @@ export default function MapView() {
             socketRef.current = socket;
 
             socket.on('connect', () => {
+              // 개발 중: 전체방 + 개별방 동시
               socket.emit('join_toilet', 'ALL');
             });
 
@@ -283,11 +286,12 @@ export default function MapView() {
               fetchActiveSignals(currentIds);
             };
 
+            // ✅ 모든 신호 변경 이벤트에서 즉시 재동기화
             socket.on('signals_changed', reSync);
-            socket.onAny((evt) => {
-              const e = String(evt);
-              if (e.startsWith('paper_') || e.startsWith('signal_')) reSync();
-            });
+            socket.on('paper_request', reSync);
+            socket.on('paper_accepted', reSync);
+            socket.on('paper_accept_canceled', reSync);
+            socket.on('paper_canceled', reSync);
 
             const pollId = window.setInterval(reSync, 10000);
             const onFocus = () => reSync();
@@ -297,7 +301,10 @@ export default function MapView() {
               window.clearInterval(pollId);
               window.removeEventListener('focus', onFocus);
               socket.off('signals_changed', reSync);
-              socket.offAny();
+              socket.off('paper_request', reSync);
+              socket.off('paper_accepted', reSync);
+              socket.off('paper_accept_canceled', reSync);
+              socket.off('paper_canceled', reSync);
               socket.disconnect();
             };
           })();
@@ -326,12 +333,10 @@ export default function MapView() {
       if (sref?.__cleanup) sref.__cleanup();
       else socketRef.current?.disconnect();
 
-      // cleanup 시 ref 스냅샷을 만들어 경고 제거
       const overlaysSnapshot = Array.from(overlayMapRef.current.values());
       overlaysSnapshot.forEach(ov => ov.setMap(null));
       overlayMapRef.current.clear();
     };
-    // 의존성에 fetchActiveSignals 추가
   }, [queryKeyword, searchToilets, handleQuerySearch, allToilets, fetchActiveSignals]);
 
   useEffect(() => {

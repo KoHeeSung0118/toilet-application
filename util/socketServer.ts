@@ -1,43 +1,40 @@
 // util/socketServer.ts
-import { Server as HTTPServer } from 'http';
-import { Server as IOServer, Socket } from 'socket.io';
+import type { Server as HTTPServer } from 'http';
+import type { Server as IOServer, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 
-let io: IOServer | null = null;
+type SocketIOWithRooms = IOServer & {
+  __inited?: boolean;
+};
 
-export function initSocketServer(server: HTTPServer): IOServer {
+let io: SocketIOWithRooms | null = null;
+
+export function getSocketServer(httpServer?: HTTPServer): SocketIOWithRooms {
   if (io) return io;
 
-  io = new IOServer(server, {
+  if (!httpServer) throw new Error('HTTP server required to init socket.io');
+
+  io = new Server(httpServer, {
     path: '/api/socket',
     cors: { origin: '*' },
-  });
+  }) as SocketIOWithRooms;
 
-  io.on('connection', (socket: Socket) => {
-    console.log('🔌 connected:', socket.id);
+  if (!io.__inited) {
+    io.__inited = true;
 
-    socket.on('join_toilet', (toiletId: string) => {
-      const room = `toilet:${toiletId}`;
-      socket.join(room);
-      console.log('🟢 JOIN', socket.id, '->', room);
+    io.on('connection', (socket: Socket) => {
+      // join specific toilet room (e.g., "1485506511"), will be mapped to "toilet:ID"
+      socket.on('join_toilet', (toiletId: string) => {
+        const room = `toilet:${toiletId}`;
+        socket.join(room);
+      });
+
+      socket.on('leave_toilet', (toiletId: string) => {
+        const room = `toilet:${toiletId}`;
+        socket.leave(room);
+      });
     });
-
-    socket.on('leave_toilet', (toiletId: string) => {
-      const room = `toilet:${toiletId}`;
-      socket.leave(room);
-      console.log('🔴 LEAVE', socket.id, '-/->', room);
-    });
-  });
+  }
 
   return io;
-}
-
-export function getSocketServer(): IOServer {
-  if (!io) throw new Error('Socket server not initialized');
-  return io;
-}
-
-// ✅ 변경 사항이 생기면 이 헬퍼만 호출
-export function emitSignalsChanged(toiletId: string | number, extra?: Record<string, unknown>) {
-  if (!io) return;
-  io.to(`toilet:${toiletId}`).emit('signals_changed', { toiletId: String(toiletId), ...(extra ?? {}) });
 }
