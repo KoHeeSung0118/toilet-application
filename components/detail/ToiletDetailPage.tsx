@@ -6,10 +6,9 @@ import DeleteCommentButton from './DeleteCommentButton';
 import FavoriteButton from '@/components/favorite/FavoriteButton';
 import ClientOnlyBackButton from './ClientOnlyBackButton';
 import DirectionsButton from '@/components/detail/DirectionsButton';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
 
-/* ---------------------------- 타입 ---------------------------- */
 interface Toilet {
   _id: string;
   place_name: string;
@@ -33,7 +32,7 @@ interface ToiletDetailPageProps {
   id: string;
   placeName?: string;
   from?: string;
-  currentUserId: string; // 로그인 강제 가정(미들웨어)
+  currentUserId: string;     // 로그인 강제 가정
   toilet: Toilet;
 }
 
@@ -49,7 +48,6 @@ interface ActiveSignal {
   expiresAt: string;
 }
 
-/* --------------------------- 컴포넌트 -------------------------- */
 export default function ToiletDetailPage({
   id,
   placeName = '',
@@ -60,9 +58,8 @@ export default function ToiletDetailPage({
   const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
   const encodedName = encodeURIComponent(placeName || toilet.place_name || '');
 
-  /* ---------------------- 활성 신호 상태 ---------------------- */
   const [activeSignals, setActiveSignals] = useState<ActiveSignal[]>([]);
-  const [tick, setTick] = useState(0); // 1초 리렌더링용
+  const socketRef = useRef<Socket | null>(null);
 
   // 남은 시간 포맷
   const timeLeft = (expiresAt: string) => {
@@ -74,129 +71,99 @@ export default function ToiletDetailPage({
     return m > 0 ? `${m}분 ${rs}초 남음` : `${rs}초 남음`;
   };
 
-  // 1초마다 강제 리렌더(남은시간 갱신)
+  // 1초 간격 리렌더(남은 시간 표시 갱신)
+  const [, forceTick] = useState(0);
   useEffect(() => {
-    const t = window.setInterval(() => setTick(v => v + 1), 1000);
-    return () => window.clearInterval(t);
+    const t = setInterval(() => forceTick(v => v + 1), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  // 서버에서 최신 요청 가져오기
-  const fetchActive = useCallback(async () => {
-    try {
-      const resp = await fetch(`/api/signal/active?toiletIds=${encodeURIComponent(id)}`, { cache: 'no-store' });
-      if (!resp.ok) return;
-      const data = (await resp.json()) as { ok?: true; items?: ActiveSignal[] };
-      const items = (data.items ?? []).filter((s) => {
-        // 수락된 요청은 요청자/구원자만 보이게(지도에서는 소켓/캐치업으로 처리)
-        if (s.acceptedByUserId && s.acceptedByUserId !== currentUserId && s.userId !== currentUserId) {
-          return false;
-        }
-        return true;
-      });
-      setActiveSignals(items);
-    } catch {
-      // ignore
-    }
-  }, [currentUserId, id]);
+  // Active 가져오기
+  const fetchActive = async () => {
+    const resp = await fetch(`/api/signal/active?toiletIds=${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!resp.ok) return;
+    const data = (await resp.json()) as { ok?: true; items?: ActiveSignal[] };
+    setActiveSignals(data.items ?? []);
+  };
 
-  // 소켓 연결 + 방 조인 + 이벤트 수신시 즉시 갱신(추가로 5초 폴백 폴링)
+  // 소켓 연결 + 이벤트 수신 → 즉시 재조회
   useEffect(() => {
-    let s: Socket | null = null;
-    let pollId: number | null = null;
+    fetchActive();
 
     (async () => {
       await fetch('/api/socketio-init', { cache: 'no-store' }).catch(() => {});
-      s = io({ path: '/api/socket', transports: ['websocket'] });
+      const s = io({ path: '/api/socket', transports: ['websocket'] });
+      socketRef.current = s;
 
       const refetch = () => fetchActive();
 
       s.on('connect', () => {
-        s!.emit('join_toilet', id);
+        s.emit('join_toilet', id);
       });
 
-      // 서버가 통일해서 쏘는 단일 이벤트
-      s.on('signals_changed', (p: { toiletId?: string }) => {
-        if (p?.toiletId === String(id)) refetch();
-      });
+      // 서버 표준 이벤트
+      s.on('signals_changed', refetch);
 
-      // 혹시 다른 이벤트명이 섞여 있더라도 모두 캐치(안전망)
+      // 구버전 이벤트도 안전망으로 처리
       s.onAny((evt) => {
         const e = String(evt);
-        if (e.startsWith('paper_') || e.startsWith('signal_')) {
-          refetch();
-        }
+        if (e.startsWith('paper_') || e.startsWith('signal_')) refetch();
       });
 
-      // 폴백 폴링(5초마다)
-      pollId = window.setInterval(refetch, 5000);
+      // 포커스 복귀 시 동기화
+      const onFocus = () => fetchActive();
+      window.addEventListener('focus', onFocus);
+
+      return () => {
+        window.removeEventListener('focus', onFocus);
+        s.off('signals_changed', refetch);
+        s.offAny();
+        s.emit('leave_toilet', id);
+        s.disconnect();
+      };
     })();
 
-    // 첫 로드 페치
-    fetchActive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-    return () => {
-      if (pollId) window.clearInterval(pollId);
-      if (!s) return;
-      s.emit('leave_toilet', id);
-      s.removeAllListeners();
-      s.disconnect();
-    };
-  }, [id, fetchActive]);
-
-  // “누가 수락했는지” 표시
-  function acceptedLabel(sig: ActiveSignal): string {
-    if (!sig.acceptedByUserId) return '';
-    if (sig.acceptedByUserId === currentUserId) return '내가 가는 중';
-    const short = sig.acceptedByUserId.slice(-4);
-    return `구원자: ****${short}`;
-  }
-
-  const isMine = (sig: ActiveSignal) => sig.userId === currentUserId;
-  const isAcceptedByMe = (sig: ActiveSignal) => sig.acceptedByUserId === currentUserId;
-
-  /* ----------------------- 액션 핸들러 ------------------------ */
-  // 갈게요(낙관적 업데이트 → 실패 시 롤백)
+  // 액션들(낙관적 업데이트 + 서버 확인)
   async function accept(signalId: string) {
-    const prev = activeSignals;
-    const optimistic = prev.map(s => s._id === signalId
-      ? { ...s, acceptedByUserId: currentUserId, expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() }
-      : s
+    // 낙관적
+    setActiveSignals(prev =>
+      prev.map(s => (s._id === signalId ? { ...s, acceptedByUserId: currentUserId } : s))
     );
-    setActiveSignals(optimistic);
-
     const r = await fetch('/api/signal/accept', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signalId }),
     });
-
     if (!r.ok) {
-      setActiveSignals(prev); // 롤백
+      // 롤백
+      setActiveSignals(prev =>
+        prev.map(s => (s._id === signalId ? { ...s, acceptedByUserId: null } : s))
+      );
       const e = (await r.json().catch(() => ({}))) as { error?: string };
       alert(e.error ?? '수락 실패');
       return;
     }
-    // 서버에서 signals_changed가 오므로 별도 처리 없어도 갱신됨(안전하게 한번 더)
     fetchActive();
   }
 
-  // 갈게요 취소
   async function cancelAccept(signalId: string) {
-    const prev = activeSignals;
-    const optimistic = prev.map(s => s._id === signalId
-      ? { ...s, acceptedByUserId: null, expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() }
-      : s
+    // 낙관적
+    setActiveSignals(prev =>
+      prev.map(s => (s._id === signalId ? { ...s, acceptedByUserId: null } : s))
     );
-    setActiveSignals(optimistic);
-
     const r = await fetch('/api/signal/accept-cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signalId }),
     });
-
     if (!r.ok) {
-      setActiveSignals(prev);
+      // 롤백: 다시 내 것으로
+      setActiveSignals(prev =>
+        prev.map(s => (s._id === signalId ? { ...s, acceptedByUserId: currentUserId } : s))
+      );
       const e = (await r.json().catch(() => ({}))) as { error?: string };
       alert(e.error ?? '취소 실패');
       return;
@@ -204,20 +171,18 @@ export default function ToiletDetailPage({
     fetchActive();
   }
 
-  // 요청자가 자기 글 삭제
-  async function cancelRequest(signalId: string) {
-    const prev = activeSignals;
-    const optimistic = prev.filter(s => s._id !== signalId);
-    setActiveSignals(optimistic);
+  async function cancelMine(signalId: string) {
+    // 낙관적 제거
+    const backup = activeSignals;
+    setActiveSignals(prev => prev.filter(s => s._id !== signalId));
 
     const r = await fetch('/api/signal/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signalId }),
     });
-
     if (!r.ok) {
-      setActiveSignals(prev);
+      setActiveSignals(backup); // 롤백
       const e = (await r.json().catch(() => ({}))) as { error?: string };
       alert(e.error ?? '요청 취소 실패');
       return;
@@ -225,105 +190,84 @@ export default function ToiletDetailPage({
     fetchActive();
   }
 
-  /* --------------------------- 렌더 --------------------------- */
+  const isMine = (sig: ActiveSignal) => sig.userId === currentUserId;
+  const isAcceptedByMe = (sig: ActiveSignal) => sig.acceptedByUserId === currentUserId;
+  const acceptedLabel = (sig: ActiveSignal) => {
+    if (!sig.acceptedByUserId) return '';
+    if (sig.acceptedByUserId === currentUserId) return '내가 가는 중';
+    return `구원자: ****${sig.acceptedByUserId.slice(-4)}`;
+    // 닉네임 시스템이 있으면 여기서 교체
+  };
+
   return (
     <div className="detail-page">
       <ClientOnlyBackButton />
 
-      {/* 헤더 */}
       <div className="detail-header">
         <div className="favorite-wrapper">
           <FavoriteButton toiletId={id} placeName={toilet.place_name} />
         </div>
         <h2>{toilet.place_name}</h2>
-        <div className="rating">
-          {'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})
-        </div>
+        <div className="rating">{'★'.repeat(Math.round(rating)).padEnd(5, '☆')} ({rating.toFixed(1)})</div>
 
-        {/* 기본 액션(휴지요청은 독립 카드로 분리) */}
         <div className="btn-group">
-          <a href={`/toilet/${id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
-            키워드 추가하기
-          </a>
-          <a href={`/toilet/${id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
-            별점 추가하기
-          </a>
+          <a href={`/toilet/${id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>키워드 추가하기</a>
+          <a href={`/toilet/${id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>별점 추가하기</a>
           <DirectionsButton placeName={toilet.place_name} lat={toilet.lat} lng={toilet.lng} />
         </div>
       </div>
 
-      {/* 활성 요청 목록 */}
+      {/* 활성 요청 */}
       {activeSignals.length > 0 && (
         <div className="active-requests">
           <div className="active-title">요청 신호</div>
           <ul className="active-list">
-            {activeSignals
-              .filter((s) => {
-                // 수락된 요청은 요청자/구원자만 보이도록 클라에서도 한 번 더 필터
-                if (s.acceptedByUserId && s.acceptedByUserId !== currentUserId && s.userId !== currentUserId) {
-                  return false;
-                }
-                return true;
-              })
-              .map((s) => (
-                <li key={s._id} className="active-item">
-                  <div className="active-msg">
-                    {s.message ?? '메시지 없음'}
-                    {s.acceptedByUserId && (
-                      <div style={{ color: '#4E3CDB', fontWeight: 600, marginTop: 4 }}>
-                        {acceptedLabel(s)}
-                      </div>
+            {activeSignals.map((s) => (
+              <li key={s._id} className="active-item">
+                <div className="active-msg">
+                  {s.message ?? '메시지 없음'}
+                  {!!s.acceptedByUserId && (
+                    <div style={{ color: '#4E3CDB', fontWeight: 600, marginTop: 4 }}>
+                      {acceptedLabel(s)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="active-meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {/* ⏱ 남은시간을 왼쪽에 */}
+                  <span>{timeLeft(s.expiresAt)}</span>
+
+                  {/* 액션 버튼들 */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {/* 내 글: 요청 취소 */}
+                    {isMine(s) && (
+                      <button className="action-btn" onClick={() => cancelMine(s._id)}>
+                        요청 취소
+                      </button>
+                    )}
+
+                    {/* 남 글: 아직 미수락이면 갈께요 */}
+                    {!isMine(s) && !s.acceptedByUserId && (
+                      <button className="action-btn" onClick={() => accept(s._id)}>
+                        갈께요
+                      </button>
+                    )}
+
+                    {/* 내가 수락한 글: 갈께요 취소 */}
+                    {!isMine(s) && isAcceptedByMe(s) && (
+                      <button className="action-btn" onClick={() => cancelAccept(s._id)}>
+                        갈께요 취소
+                      </button>
                     )}
                   </div>
-
-                  {/* 오른쪽: 남은 시간(왼쪽) + 버튼(오른쪽) */}
-                  <div className="active-meta" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span aria-label="남은시간">{timeLeft(s.expiresAt)}</span>
-
-                    {/* 버튼 영역 */}
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {/* 내 글이면 '요청 취소' */}
-                      {isMine(s) && (
-                        <button
-                          type="button"
-                          className="action-btn"
-                          onClick={() => cancelRequest(s._id)}
-                          aria-label="요청 취소"
-                        >
-                          요청 취소
-                        </button>
-                      )}
-                      {/* 내 글이 아니고, 아직 수락자 없으면 '갈게요' */}
-                      {!isMine(s) && !s.acceptedByUserId && (
-                        <button
-                          type="button"
-                          className="action-btn"
-                          onClick={() => accept(s._id)}
-                          aria-label="갈게요"
-                        >
-                          갈게요
-                        </button>
-                      )}
-                      {/* 내가 수락자면 '갈게요 취소' */}
-                      {isAcceptedByMe(s) && (
-                        <button
-                          type="button"
-                          className="action-btn"
-                          onClick={() => cancelAccept(s._id)}
-                          aria-label="갈게요 취소"
-                        >
-                          갈게요 취소
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              ))}
+                </div>
+              </li>
+            ))}
           </ul>
         </div>
       )}
 
-      {/* 휴지 요청: 독립 카드 */}
+      {/* 독립 요청 카드 */}
       <div className="request-card">
         <div className="request-title">휴지 요청 보내기</div>
         <div className="request-row">
@@ -332,12 +276,12 @@ export default function ToiletDetailPage({
             lat={toilet.lat}
             lng={toilet.lng}
             userId={currentUserId}
+            onCreated={fetchActive}   // ✅ 요청 직후 바로 목록 반영
           />
         </div>
         <div className="request-hint">예: 남자 화장실 2번째 칸입니다. (최대 120자)</div>
       </div>
 
-      {/* 사용자들의 평균 점수 */}
       <div className="tags-box">
         사용자들의 평균 점수
         <div>청결: {toilet.cleanliness}점</div>
@@ -345,7 +289,6 @@ export default function ToiletDetailPage({
         <div>편의: {toilet.convenience}점</div>
       </div>
 
-      {/* 키워드 */}
       {toilet.keywords?.length ? (
         <div className="keyword-box">
           {toilet.keywords.map((kw, idx) => (
@@ -358,7 +301,6 @@ export default function ToiletDetailPage({
         </div>
       )}
 
-      {/* 댓글 */}
       <div className="reviews">
         <h3>댓글</h3>
         {toilet.reviews?.length ? (
@@ -402,10 +344,7 @@ export default function ToiletDetailPage({
         )}
       </div>
 
-      <a
-        className="comment-btn"
-        href={`/toilet/${id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}
-      >
+      <a className="comment-btn" href={`/toilet/${id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
         댓글 추가하기
       </a>
     </div>

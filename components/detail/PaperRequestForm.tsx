@@ -1,56 +1,82 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 
 type Props = {
   toiletId: string;
   lat: number;
   lng: number;
-  userId: string;            // 로그인 강제
-  onSuccess?: () => void;    // 성공 시 부모 갱신
+  userId: string;
+  /** 요청이 성공적으로 생성된 직후 호출 (선택) */
+  onCreated?: () => void | Promise<void>;
 };
 
-export default function PaperRequestForm({ toiletId, lat, lng, userId, onSuccess }: Props) {
-  const [msg, setMsg] = useState('');
+export default function PaperRequestForm({
+  toiletId,
+  lat,
+  lng,
+  userId,
+  onCreated,
+}: Props) {
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const submit = async () => {
-    if (loading) return;
-    const message = msg.trim().slice(0, 120);
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const msg = message.trim();
+    if (!msg) {
+      alert('요청 내용을 입력해 주세요.');
+      return;
+    }
+    if (msg.length > 120) {
+      alert('메시지는 120자 이내로 입력해 주세요.');
+      return;
+    }
 
-    setLoading(true);
     try {
-      const res = await fetch('/api/signal/request-paper', {
+      setLoading(true);
+      const resp = await fetch('/api/signal/request-paper', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toiletId, lat, lng, userId, message }),
+        body: JSON.stringify({
+          toiletId,
+          lat,
+          lng,
+          userId,
+          message: msg,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data?.error ?? '요청 실패');
+
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => ({}))) as { error?: string };
+        alert(data.error ?? '요청 전송에 실패했습니다.');
         return;
+        }
+
+      // 성공: 입력 초기화 + 상위 갱신 콜백
+      setMessage('');
+      if (onCreated) {
+        await onCreated();
       }
-      setMsg('');
-      onSuccess?.(); // 즉시 갱신
-    } catch {
-      alert('네트워크 오류');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <>
+    <form className="request-row" onSubmit={handleSubmit}>
       <input
         className="action-input"
-        placeholder="메시지 (예: 남자 화장실 2번째 칸)"
-        value={msg}
-        onChange={(e) => setMsg(e.target.value)}
+        type="text"
+        placeholder="예: 남자 화장실 2번째 칸입니다."
+        value={message}
         maxLength={120}
+        onChange={(e) => setMessage(e.target.value)}
+        disabled={loading}
       />
-      <button type="button" className="action-btn" onClick={submit} disabled={loading}>
-        {loading ? '전송 중...' : '휴지 요청'}
+      <button className="action-btn" type="submit" disabled={loading}>
+        {loading ? '보내는 중…' : '요청 보내기'}
       </button>
-    </>
+    </form>
   );
 }
