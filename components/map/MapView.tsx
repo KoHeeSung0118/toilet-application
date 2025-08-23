@@ -38,6 +38,19 @@ const toNum = (v?: string | number | null) => {
   return Number.isFinite(n) ? n : null;
 };
 
+// Haversine (두 점 간 거리, m)
+function distanceMeters(a: LatLngWithGet, b: LatLngWithGet) {
+  const R = 6371000;
+  const dLat = ((b.getLat() - a.getLat()) * Math.PI) / 180;
+  const dLng = ((b.getLng() - a.getLng()) * Math.PI) / 180;
+  const la1 = (a.getLat() * Math.PI) / 180;
+  const la2 = (b.getLat() * Math.PI) / 180;
+  const sinDlat = Math.sin(dLat / 2);
+  const sinDlng = Math.sin(dLng / 2);
+  const h = sinDlat * sinDlat + Math.cos(la1) * Math.cos(la2) * sinDlng * sinDlng;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
 export default function MapView() {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,6 +66,9 @@ export default function MapView() {
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const overlayMapRef = useRef<Map<string, kakao.maps.CustomOverlay>>(new Map());
+
+  const inFlightRef = useRef(false);
+  const lastSearchCenterRef = useRef<kakao.maps.LatLng | null>(null);
 
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<Toilet[]>([]);
@@ -179,7 +195,6 @@ export default function MapView() {
       });
     });
 
-    // 방 동기화
     if (socketRef.current) {
       const nextIds = new Set(toilets.map((t) => t.id));
       toilets.forEach((t) => {
@@ -196,15 +211,20 @@ export default function MapView() {
       }
     }
 
-    // 활성 신호 캐치업
     fetchActiveSignals(toilets.map((t) => t.id));
   }, [fetchActiveSignals, pathname, router]);
 
-  const searchToilets = useCallback(async (lat: number, lng: number, shouldCenter = true) => {
+  // shouldCenter=false 기본값으로 변경 (무의식적 재센터링 방지)
+  const searchToilets = useCallback(async (lat: number, lng: number, shouldCenter = false) => {
+    if (inFlightRef.current) return; // 중복 호출 방지
+    inFlightRef.current = true;
+
     const ps = new window.kakao.maps.services.Places();
     ps.keywordSearch(
       '화장실',
       async (data, status) => {
+        inFlightRef.current = false;
+
         if (status !== window.kakao.maps.services.Status.OK) return;
 
         const enriched = await Promise.all(
@@ -232,6 +252,8 @@ export default function MapView() {
         if (shouldCenter && mapRef.current) {
           (mapRef.current as MapWithPanTo).panTo(new window.kakao.maps.LatLng(lat, lng));
         }
+        // 마지막 검색 중심 업데이트
+        lastSearchCenterRef.current = new window.kakao.maps.LatLng(lat, lng);
       },
       { location: new window.kakao.maps.LatLng(lat, lng), radius: 20000 }
     );
@@ -243,8 +265,10 @@ export default function MapView() {
       if (status === window.kakao.maps.services.Status.OK) {
         const { y, x } = result[0];
         const coords = new window.kakao.maps.LatLng(+y, +x);
+        // 지도만 이동시키고…
         (mapRef.current as MapWithPanTo).panTo(coords);
-        searchToilets(+y, +x);
+        // 검색은 재센터링 없이
+        searchToilets(+y, +x, false);
       } else {
         alert('검색 결과가 없습니다.');
       }
@@ -270,6 +294,7 @@ export default function MapView() {
 
           mapRef.current = new window.kakao.maps.Map(mapEl, { center, level: 3 });
           currentPosRef.current = center;
+          lastSearchCenterRef.current = center; // 초기 중심 기록
 
           (async () => {
             await fetch('/api/socketio-init', { cache: 'no-store' }).catch(() => {});
@@ -277,7 +302,6 @@ export default function MapView() {
             socketRef.current = socket;
 
             socket.on('connect', () => {
-              // 개발 중: 전체방 + 개별방 동시
               socket.emit('join_toilet', 'ALL');
             });
 
@@ -286,14 +310,13 @@ export default function MapView() {
               fetchActiveSignals(currentIds);
             };
 
-            // ✅ 모든 신호 변경 이벤트에서 즉시 재동기화
             socket.on('signals_changed', reSync);
-            socket.on('paper_request', reSync);
-            socket.on('paper_accepted', reSync);
-            socket.on('paper_accept_canceled', reSync);
-            socket.on('paper_canceled', reSync);
+            socket.onAny((evt) => {
+              const e = String(evt);
+              if (e.startsWith('paper_') || e.startsWith('signal_')) reSync();
+            });
 
-            const pollId = window.setInterval(reSync, 10000);
+            const pollId = window.setInterval(reSync, 12000);
             const onFocus = () => reSync();
             window.addEventListener('focus', onFocus);
 
@@ -301,29 +324,36 @@ export default function MapView() {
               window.clearInterval(pollId);
               window.removeEventListener('focus', onFocus);
               socket.off('signals_changed', reSync);
-              socket.off('paper_request', reSync);
-              socket.off('paper_accepted', reSync);
-              socket.off('paper_accept_canceled', reSync);
-              socket.off('paper_canceled', reSync);
+              socket.offAny();
               socket.disconnect();
             };
           })();
 
-          searchToilets(lat, lng);
+          // ✅ 초기 검색은 재센터링 없이(이미 center 세팅됐으니 굳이 panTo 금지)
+          searchToilets(lat, lng, false);
           if (queryKeyword) handleQuerySearch(queryKeyword);
 
+          // ✅ idle 시 재검색: 1초 디바운스 + 200m 이상 이동시에만
           window.kakao.maps.event.addListener(mapRef.current, 'idle', () => {
             if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
             idleTimerRef.current = window.setTimeout(() => {
               const c = (mapRef.current as MapWithGetCenter).getCenter() as LatLngWithGet;
+
+              const last = lastSearchCenterRef.current as LatLngWithGet | null;
+              if (last) {
+                const moved = distanceMeters(last, c);
+                if (moved < 200) return; // 200m 미만이면 스킵
+              }
               searchToilets(c.getLat(), c.getLng(), false);
-            }, 400);
+            }, 1000);
           });
         };
 
+        // 초기 위치: 성공해도, 실패해도 searchToilets는 re-center 안함
         navigator.geolocation.getCurrentPosition(
           (pos) => initMap(pos.coords.latitude, pos.coords.longitude),
-          () => initMap(37.5665, 126.9780)
+          () => initMap(37.5665, 126.9780),
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 20000 }
         );
       });
     };
@@ -339,24 +369,36 @@ export default function MapView() {
     };
   }, [queryKeyword, searchToilets, handleQuerySearch, allToilets, fetchActiveSignals]);
 
+  // 현재 위치 마커 (지도는 이동시키지 않음 — 버튼 눌러야 이동)
   useEffect(() => {
     let currentMarker: kakao.maps.Marker | null = null;
-    const watchId = navigator.geolocation.watchPosition(({ coords }) => {
-      if (!mapRef.current) return;
-      const latLng = new window.kakao.maps.LatLng(coords.latitude, coords.longitude);
-      currentPosRef.current = latLng;
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        if (!mapRef.current) return;
+        const latLng = new window.kakao.maps.LatLng(coords.latitude, coords.longitude);
+        // 너무 자잘한 흔들림은 무시(15m 미만)
+        const prev = currentPosRef.current as LatLngWithGet | null;
+        if (prev) {
+          const moved = distanceMeters(prev, latLng as LatLngWithGet);
+          if (moved < 15) return;
+        }
+        currentPosRef.current = latLng;
 
-      if (!currentMarker) {
-        currentMarker = new window.kakao.maps.Marker({
-          map: mapRef.current,
-          position: latLng,
-          image: new window.kakao.maps.MarkerImage('/marker/location-icon.png', new window.kakao.maps.Size(36, 36)),
-          zIndex: 9999,
-        });
-      } else {
-        (currentMarker as MarkerWithSetPosition).setPosition(latLng);
-      }
-    });
+        if (!currentMarker) {
+          currentMarker = new window.kakao.maps.Marker({
+            map: mapRef.current,
+            position: latLng,
+            image: new window.kakao.maps.MarkerImage('/marker/location-icon.png', new window.kakao.maps.Size(36, 36)),
+            zIndex: 9999,
+          });
+        } else {
+          (currentMarker as MarkerWithSetPosition).setPosition(latLng);
+        }
+      },
+      // 오류 콜백은 무시
+      undefined,
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 15000 }
+    );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
