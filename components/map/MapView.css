@@ -81,6 +81,26 @@ html, body, #__next {
   height: 100%;
 }
 
+/* 기존 내용 유지 + 아래 추가 */
+
+.map-container, #map {
+  /* GPU 합성 힌트로 끊김/겹침 완화 */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+
+  /* 레이아웃/페인트 격리로 상단탭 겹침/깨짐 완화 */
+  contain: layout paint size style;
+}
+
+/* Kakao 기본 타일이 과도한 그림자/배경을 생성하지 않도록 */
+div[class^="wrap"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+
 /* ✅ CustomOverlay 스타일 */
 .custom-overlay-box {
   position: relative;
