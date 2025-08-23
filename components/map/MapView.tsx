@@ -10,6 +10,14 @@ import io, { Socket } from 'socket.io-client';
 // Header는 클라 전용 로드
 const Header = dynamic(() => import('@/components/common/Header'), { ssr: false });
 
+/* ===== 전역 Window 타입 보강 ===== */
+declare global {
+  interface Window {
+    __KAKAO_MAPS_LOADED?: boolean;
+    kakao: typeof kakao;
+  }
+}
+
 /* ----------------------------- 상수 ----------------------------- */
 const FILTERS = [
   '화장실 칸 많음',
@@ -41,12 +49,16 @@ type ActiveSignal = {
   expiresAt: string;
 };
 
-/* ---- 카카오 보조 타입(전역 kakao를 수정하지 않고 안전 캐스팅용) ---- */
+/* ---- 카카오 보조 타입(정확한 타입 지정) ---- */
 type MapWithGetCenter = kakao.maps.Map & { getCenter(): kakao.maps.LatLng };
 type MapWithPanTo = kakao.maps.Map & { panTo(pos: kakao.maps.LatLng): void };
-type MapWithBounds = kakao.maps.Map & { getBounds(): kakao.maps.LatLngBounds };
+// LatLngBounds 전체 타입이 없어도 우리가 쓰는 contain 메서드만 명세
+type BoundsLike = { contain(latlng: kakao.maps.LatLng): boolean };
+type MapWithBounds = kakao.maps.Map & { getBounds(): BoundsLike };
+
 type LatLngGettable = kakao.maps.LatLng & { getLat(): number; getLng(): number };
 type MarkerWithSetPosition = kakao.maps.Marker & { setPosition(pos: kakao.maps.LatLng): void };
+type SocketWithCleanup = Socket & { __cleanup?: () => void };
 
 /* ----------------------------- 유틸 ----------------------------- */
 const toNum = (v?: string | number | null) => {
@@ -69,21 +81,23 @@ function dist(a: LatLngGettable, b: LatLngGettable): number {
 /** Kakao SDK 로더(싱글톤) */
 function loadKakao(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
-  if ((window as any).__KAKAO_MAPS_LOADED) return Promise.resolve();
+  if (window.__KAKAO_MAPS_LOADED) return Promise.resolve();
   return new Promise((resolve) => {
     const existing = document.querySelector<HTMLScriptElement>('#kakao-sdk');
     if (existing) {
-      existing.addEventListener('load', () => resolve());
+      if (existing.dataset.loaded === 'true') return resolve();
+      existing.addEventListener('load', () => resolve(), { once: true });
       return;
     }
     const s = document.createElement('script');
     s.id = 'kakao-sdk';
     s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services';
     s.async = true;
-    s.onload = () => {
-      (window as any).__KAKAO_MAPS_LOADED = true;
+    s.addEventListener('load', () => {
+      window.__KAKAO_MAPS_LOADED = true;
+      s.dataset.loaded = 'true';
       resolve();
-    };
+    }, { once: true });
     document.head.appendChild(s);
   });
 }
@@ -106,7 +120,7 @@ export default function MapView() {
   const idleTimerRef = useRef<number | null>(null);
 
   // 소켓/오버레이
-  const socketRef = useRef<(Socket & { __cleanup?: () => void }) | null>(null);
+  const socketRef = useRef<SocketWithCleanup | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const overlayMapRef = useRef<Map<string, kakao.maps.CustomOverlay>>(new Map());
 
@@ -230,8 +244,7 @@ export default function MapView() {
             currentOverlayRef.current.setMap(null);
           }
           const bounds = (map as MapWithBounds).getBounds();
-          // @ts-expect-error kakao 타입 선언 누락 방지용(실제 API 존재)
-          const isInside = bounds.contain ? bounds.contain(pos) : true;
+          const isInside = bounds.contain(pos);
           if (!isInside) (map as MapWithPanTo).panTo(pos);
           overlay.setMap(map);
           currentOverlayRef.current = overlay;
@@ -239,7 +252,7 @@ export default function MapView() {
           content.querySelector('.custom-close-btn')?.addEventListener('click', () => {
             overlay.setMap(null);
             if (currentOverlayRef.current === overlay) currentOverlayRef.current = null;
-          });
+          }, { once: true });
         });
 
         // 더블클릭: 디테일 이동
@@ -316,8 +329,8 @@ export default function MapView() {
     if (!keyword) return;
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
-      if (status === window.kakao.maps.services.Status.OK) {
-        const { y, x } = result[0]!;
+      if (status === window.kakao.maps.services.Status.OK && result[0]) {
+        const { y, x } = result[0];
         const coords = new window.kakao.maps.LatLng(+y, +x);
         (mapRef.current as MapWithPanTo).panTo(coords);
         searchToilets(+y, +x);
@@ -353,7 +366,7 @@ export default function MapView() {
           // 소켓 연결(보이는 화장실만 방 조인)
           (async () => {
             await fetch('/api/socketio-init', { cache: 'no-store' }).catch(() => {});
-            const socket = io({ path: '/api/socket', transports: ['websocket'] }) as Socket & { __cleanup?: () => void };
+            const socket = io({ path: '/api/socket', transports: ['websocket'] }) as SocketWithCleanup;
             socketRef.current = socket;
 
             const reSync = () => {
@@ -381,7 +394,7 @@ export default function MapView() {
             };
           })();
 
-          // 첫 검색은 페인트 이후로 살짝 지연하여 체감 렌더 빠르게
+          // 첫 검색은 페인트 이후로 지연하여 체감 렌더 빠르게
           requestAnimationFrame(() => searchToilets(lat, lng, false));
           if (queryKeyword) handleQuerySearch(queryKeyword);
 
@@ -410,19 +423,23 @@ export default function MapView() {
       });
     })();
 
+    // cleanup (스냅샷 사용)
     return () => {
       canceled = true;
+
       const sref = socketRef.current;
       if (sref?.__cleanup) sref.__cleanup();
       else socketRef.current?.disconnect();
 
-      // 오버레이/마커 정리
-      Array.from(overlayMapRef.current.values()).forEach(ov => ov.setMap(null));
+      const overlaysSnapshot = Array.from(overlayMapRef.current.values());
+      overlaysSnapshot.forEach(ov => ov.setMap(null));
       overlayMapRef.current.clear();
-      for (const m of markersByIdRef.current.values()) m.setMap(null);
+
+      const markersSnapshot = Array.from(markersByIdRef.current.values());
+      markersSnapshot.forEach(m => m.setMap(null));
       markersByIdRef.current.clear();
     };
-  }, [queryKeyword, searchToilets, handleQuerySearch]);
+  }, [queryKeyword, searchToilets, handleQuerySearch, fetchActiveSignals]);
 
   /* -------- 현재 위치 마커: watchPosition + 3초 폴백 -------- */
   useEffect(() => {
@@ -457,7 +474,8 @@ export default function MapView() {
     const fallbackId = window.setTimeout(() => {
       if (!currentMarker && mapRef.current) {
         const c = (mapRef.current as MapWithGetCenter).getCenter();
-        placeOrMove((c as LatLngGettable).getLat(), (c as LatLngGettable).getLng());
+        const gg = c as LatLngGettable;
+        placeOrMove(gg.getLat(), gg.getLng());
       }
     }, 3000);
 
