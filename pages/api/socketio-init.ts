@@ -1,29 +1,26 @@
 // pages/api/socketio-init.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { Server as HTTPServer } from 'http';
-import { attachSocketServer, getSocketServer } from '@/util/socketServer';
+import type { Socket as NetSocket } from 'net';
+import type { Server as IOServer } from 'socket.io';
+import { getSocketServer } from '@/util/socketServer';
 
 type ResWithSocket = NextApiResponse & {
-  socket: { server: HTTPServer & { __ioAttached?: boolean } };
+  socket: NetSocket & { server: HTTPServer & { io?: IOServer } };
 };
 
-export default function handler(_req: NextApiRequest, res: NextApiResponse) {
-  const r = res as ResWithSocket;
-
-  if (!r?.socket?.server) {
-    return res.status(500).json({ ok: false, error: 'No HTTP server bound' as any });
+export default function handler(req: NextApiRequest, res: ResWithSocket) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', ['GET', 'HEAD']);
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // ✅ 중복 attach 방지 (핫리로드/중복 호출 대비)
-  if (!r.socket.server.__ioAttached) {
-    attachSocketServer(r.socket.server);
-    r.socket.server.__ioAttached = true;
-  }
+  const server = res.socket?.server;
+  if (!server) return res.status(500).json({ error: 'No HTTP server bound' });
 
-  // 인스턴스 보장(초기화 실패시 throw로 잡히게)
-  getSocketServer();
+  // ✅ 최초 요청 시 socket.io 초기화 + 재사용
+  getSocketServer(server);
 
-  // 캐시 금지
   res.setHeader('Cache-Control', 'no-store');
   return res.status(200).json({ ok: true });
 }

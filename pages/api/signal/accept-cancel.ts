@@ -1,25 +1,21 @@
-// pages/api/signal/accept-cancel.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import connectDB from '@/lib/mongodb'; // ✅ lib/mongodb.ts의 clientPromise 사용
+import connectDB from '@/lib/mongodb'; // lib/mongodb.ts의 clientPromise 사용
 import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
 
-type ApiResp = { ok?: true; error?: string };
+type Body = { signalId: string };
+type ApiResp = { ok: true } | { error: string };
 
-interface PaperSignalDoc {
-  _id?: ObjectId;
+type DbDoc = {
+  _id: ObjectId;
   toiletId: string;
-  lat: number;
-  lng: number;
-  userId: string;
-  message?: string;
-  createdAt: Date;
+  acceptedByUserId?: string | null;
+  canceledAt?: Date;
   expiresAt: Date;
-  acceptedByUserId: string | null;
-}
+};
 
-// findOneAndUpdate 드라이버 버전별 대응
+/** findOneAndUpdate 결과를 unwrap */
 function unwrapValue<T>(res: unknown): WithId<T> | null {
   if (res && typeof res === 'object') {
     if (Object.prototype.hasOwnProperty.call(res, 'value')) {
@@ -39,7 +35,7 @@ export default async function handler(
   const userId = getUserFromTokenInAPI(req);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { signalId } = req.body as { signalId?: string };
+  const { signalId } = req.body as Body;
   if (!signalId) return res.status(400).json({ error: 'Invalid payload' });
 
   // ✅ ObjectId 형식 방어
@@ -52,32 +48,31 @@ export default async function handler(
 
   const client = await connectDB;
   const db = client.db('toilet');
-  const signals = db.collection<PaperSignalDoc>('signals');
+  const signals = db.collection<DbDoc>('signals');
 
   const now = new Date();
 
+  // 내가 수락한 건만 취소 가능
   const rawResult = await signals.findOneAndUpdate(
     {
       _id,
       expiresAt: { $gt: now },
-      acceptedByUserId: userId, // 내가 수락한 건만 취소 가능
+      acceptedByUserId: userId,
     },
-    { $set: { acceptedByUserId: null } },
+    { $set: { acceptedByUserId: null }, $unset: { acceptedAt: '' } },
     { returnDocument: 'after' }
   );
 
-  const updated = unwrapValue<PaperSignalDoc>(rawResult);
-  if (!updated) return res.status(409).json({ error: 'Not accepted by you or expired' });
+  const doc = unwrapValue<DbDoc>(rawResult);
+  if (!doc) return res.status(404).json({ error: 'Not Found or not rescuer' });
 
   try {
-    const io = getSocketServer();
-    io.to(`toilet:${updated.toiletId}`).emit('signals_changed', {
-      type: 'paper_accept_canceled',
-      signalId,
-      toiletId: updated.toiletId,
-    });
+    const io = getSocketServer((res.socket as any)?.server);
+    const room = `toilet:${doc.toiletId}`;
+    io.to(room).emit('paper_accept_canceled', { signalId });
+    io.to(room).emit('signals_changed', { toiletId: doc.toiletId });
   } catch {
-    /* noop */
+    // 소켓 서버 없음
   }
 
   return res.status(200).json({ ok: true });

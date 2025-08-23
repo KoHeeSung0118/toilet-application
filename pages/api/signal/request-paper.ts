@@ -1,9 +1,8 @@
-// pages/api/signal/request-paper.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import connectDB from '@/lib/mongodb';
 import type { InsertOneResult } from 'mongodb';
-import { emitSignalsChanged, getSocketServer } from '@/util/socketServer';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
+import { getSocketServer } from '@/util/socketServer';
 
 interface ApiResp {
   ok?: true;
@@ -20,7 +19,6 @@ interface Body {
 }
 
 interface PaperSignalDoc {
-  // _id는 Mongo가 붙여줌
   toiletId: string;
   lat: number;
   lng: number;
@@ -29,13 +27,17 @@ interface PaperSignalDoc {
   acceptedByUserId?: string | null;
   createdAt: Date;
   expiresAt: Date;
+  type: 'PAPER_REQUEST';
+  canceledAt?: Date;
 }
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResp>
 ) {
-  if (req.method !== 'POST') return res.status(405).end();
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
   const userId = getUserFromTokenInAPI(req);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -46,61 +48,62 @@ export default async function handler(
   if (!toiletId || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return res.status(400).json({ error: 'Invalid payload' });
   }
-  // ✅ 좌표 범위 방어
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return res.status(400).json({ error: 'Invalid coordinates' });
   }
 
-  // ✅ 메시지 정리(optional)
+  // 메시지 정리
   const cleanMsg =
-    typeof message === 'string'
-      ? message.trim().slice(0, 500) // 길이 제한(필요 시 조정)
-      : undefined;
+    typeof message === 'string' ? message.trim().slice(0, 120) : undefined;
 
   const now = new Date();
-  const tenMin = 10 * 60 * 1000;
-  const expiresAt = new Date(now.getTime() + tenMin);
+  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10분
 
   const client = await connectDB;
   const db = client.db('toilet');
   const signals = db.collection<PaperSignalDoc>('signals');
 
-  // 동일 유저 활성 요청이 이미 있으면 막기
+  // ✅ 사용자 단일 활성 요청 제한 (전 화장실 공통)
   const existing = await signals.findOne({
     userId,
+    canceledAt: { $exists: false },
     expiresAt: { $gt: now },
   });
-  if (existing) return res.status(409).json({ error: 'Active request exists' });
+  if (existing) {
+    return res.status(409).json({ error: 'already_active' });
+  }
 
   const doc: PaperSignalDoc = {
     toiletId,
     lat,
     lng,
-    message: cleanMsg ?? undefined,
+    message: cleanMsg ?? null,
     userId,
-    acceptedByUserId: null,
+    type: 'PAPER_REQUEST',
     createdAt: now,
     expiresAt,
+    acceptedByUserId: null,
   };
 
   const result: InsertOneResult<PaperSignalDoc> = await signals.insertOne(doc);
 
-  // broadcast
   try {
-    getSocketServer(); // 인스턴스 보장
-    emitSignalsChanged(toiletId, 'paper_request', {
+    const io = getSocketServer((res.socket as any)?.server);
+    const room = `toilet:${toiletId}`;
+    io.to(room).emit('paper_request', {
       _id: result.insertedId.toHexString(),
       toiletId,
       lat,
       lng,
-      message: cleanMsg ?? null,
+      message: doc.message,
       userId,
-      acceptedByUserId: null,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
+      acceptedByUserId: null,
     });
+    io.to(room).emit('signals_changed', { toiletId });
   } catch {
-    /* no-op in dev */
+    // dev에서 소켓 서버 초기화 전이면 무시
   }
 
   return res.status(201).json({
