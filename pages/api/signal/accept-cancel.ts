@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import connectDB from '@/lib/mongodb'; // lib/mongodb.ts의 clientPromise 사용
+import type { Server as HTTPServer } from 'http';
+import connectDB from '@/lib/mongodb';
 import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
@@ -13,9 +14,10 @@ type DbDoc = {
   acceptedByUserId?: string | null;
   canceledAt?: Date;
   expiresAt: Date;
+  acceptedAt?: Date;
 };
 
-/** findOneAndUpdate 결과를 unwrap */
+/** findOneAndUpdate 결과 unwrap */
 function unwrapValue<T>(res: unknown): WithId<T> | null {
   if (res && typeof res === 'object') {
     if (Object.prototype.hasOwnProperty.call(res, 'value')) {
@@ -67,7 +69,12 @@ export default async function handler(
   if (!doc) return res.status(404).json({ error: 'Not Found or not rescuer' });
 
   try {
-    const io = getSocketServer((res.socket as any)?.server);
+    // ✅ res.socket.server 타입 안전하게 접근
+    const socketWithServer = res.socket as typeof res.socket & {
+      server: HTTPServer;
+    };
+
+    const io = getSocketServer(socketWithServer.server);
     const room = `toilet:${doc.toiletId}`;
     io.to(room).emit('paper_accept_canceled', { signalId });
     io.to(room).emit('signals_changed', { toiletId: doc.toiletId });

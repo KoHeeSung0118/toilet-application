@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import connectDB from '@/lib/mongodb'; // lib/mongodb.ts 사용
+import type { Server as HTTPServer } from 'http';
+import connectDB from '@/lib/mongodb';
 import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
@@ -14,6 +15,7 @@ type DbDoc = {
   acceptedByUserId?: string | null;
   canceledAt?: Date;
   expiresAt: Date;
+  acceptedAt?: Date;
 };
 
 /** findOneAndUpdate 결과 unwrap */
@@ -79,7 +81,12 @@ export default async function handler(
   }
 
   try {
-    const io = getSocketServer((res.socket as any)?.server);
+    // ✅ 타입 안전한 server 캐스팅
+    const socketWithServer = res.socket as typeof res.socket & {
+      server: HTTPServer;
+    };
+
+    const io = getSocketServer(socketWithServer.server);
     const room = `toilet:${updated.toiletId}`;
     io.to(room).emit('paper_accepted', {
       signalId,

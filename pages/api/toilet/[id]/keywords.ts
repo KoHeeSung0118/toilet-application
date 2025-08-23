@@ -1,8 +1,17 @@
-// pages/api/toilet/[id]/keywords.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import connectDB from '@/lib/mongodb';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+interface ApiResp {
+  success: boolean;
+  updated: boolean;
+  keywords: string[];
+  error?: string;
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ApiResp | { message: string }>
+) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'POST 요청만 허용됩니다.' });
   }
@@ -15,19 +24,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // keywords 검증 및 정리
-  const raw = (req.body as any)?.keywords;
-  if (!Array.isArray(raw)) {
+  const body = req.body as { keywords?: unknown };
+  if (!Array.isArray(body.keywords)) {
     return res.status(400).json({ message: 'keywords는 배열이어야 합니다.' });
   }
 
-  // 문자열만 남기고 trim → 빈값 제거 → 소문자/정규화(원하면 제거) → 중복 제거 → 개수/길이 제한
-  const cleaned = [...new Set(
-    raw
-      .filter((k: any) => typeof k === 'string')
-      .map((k: string) => k.trim())
-      .filter((k: string) => k.length > 0)
-      .map((k: string) => (k.length > 30 ? k.slice(0, 30) : k)) // 키워드 최대 30자
-  )].slice(0, 20); // 최대 20개
+  // 문자열만 남기고 trim → 빈값 제거 → 길이 제한 → 중복 제거 → 최대 20개
+  const cleaned = [
+    ...new Set(
+      body.keywords
+        .filter((k): k is string => typeof k === 'string')
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0)
+        .map((k) => (k.length > 30 ? k.slice(0, 30) : k)) // 키워드 최대 30자
+    ),
+  ].slice(0, 20);
 
   const client = await connectDB;
   const db = client.db('toilet_app');

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import type { Server as HTTPServer } from 'http';
 import connectDB from '@/lib/mongodb';
 import type { InsertOneResult } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
@@ -88,7 +89,12 @@ export default async function handler(
   const result: InsertOneResult<PaperSignalDoc> = await signals.insertOne(doc);
 
   try {
-    const io = getSocketServer((res.socket as any)?.server);
+    // ✅ 타입 안전한 server 캐스팅
+    const socketWithServer = res.socket as typeof res.socket & {
+      server: HTTPServer;
+    };
+
+    const io = getSocketServer(socketWithServer.server);
     const room = `toilet:${toiletId}`;
     io.to(room).emit('paper_request', {
       _id: result.insertedId.toHexString(),
