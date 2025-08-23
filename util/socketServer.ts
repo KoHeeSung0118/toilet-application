@@ -1,41 +1,43 @@
 // util/socketServer.ts
-import type { Server as HTTPServer } from 'http';
-import { Server as IOServer, type ServerOptions } from 'socket.io';
+import { Server as HTTPServer } from 'http';
+import { Server as IOServer, Socket } from 'socket.io';
 
-let ioInstance: IOServer | null = null;
+let io: IOServer | null = null;
 
 export function initSocketServer(server: HTTPServer): IOServer {
-  if (ioInstance) return ioInstance;
+  if (io) return io;
 
-  const opts: Partial<ServerOptions> = {
+  io = new IOServer(server, {
     path: '/api/socket',
-    cors: { origin: '*', methods: ['GET', 'POST'] },
-  };
+    cors: { origin: '*' },
+  });
 
-  ioInstance = new IOServer(server, opts);
+  io.on('connection', (socket: Socket) => {
+    console.log('🔌 connected:', socket.id);
 
-  ioInstance.on('connection', (socket) => {
-    // join/leave 방
     socket.on('join_toilet', (toiletId: string) => {
-      if (typeof toiletId === 'string' && toiletId.length > 0) {
-        socket.join(`toilet:${toiletId}`);
-        // console.log(`🟢 JOIN ${socket.id} -> toilet:${toiletId}`);
-      }
+      const room = `toilet:${toiletId}`;
+      socket.join(room);
+      console.log('🟢 JOIN', socket.id, '->', room);
     });
+
     socket.on('leave_toilet', (toiletId: string) => {
-      if (typeof toiletId === 'string' && toiletId.length > 0) {
-        socket.leave(`toilet:${toiletId}`);
-        // console.log(`🔴 LEAVE ${socket.id} -/-> toilet:${toiletId}`);
-      }
+      const room = `toilet:${toiletId}`;
+      socket.leave(room);
+      console.log('🔴 LEAVE', socket.id, '-/->', room);
     });
   });
 
-  return ioInstance;
+  return io;
 }
 
 export function getSocketServer(): IOServer {
-  if (!ioInstance) {
-    throw new Error('Socket server not initialized');
-  }
-  return ioInstance;
+  if (!io) throw new Error('Socket server not initialized');
+  return io;
+}
+
+// ✅ 변경 사항이 생기면 이 헬퍼만 호출
+export function emitSignalsChanged(toiletId: string | number, extra?: Record<string, unknown>) {
+  if (!io) return;
+  io.to(`toilet:${toiletId}`).emit('signals_changed', { toiletId: String(toiletId), ...(extra ?? {}) });
 }

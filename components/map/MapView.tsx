@@ -7,25 +7,21 @@ import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
 import io, { Socket } from 'socket.io-client';
 
+// Header는 클라이언트 전용으로 로드
 const Header = dynamic(() => import('@/components/common/Header'), { ssr: false });
 
+/* ----------------------------- 상수 ----------------------------- */
 const FILTERS = [
   '화장실 칸 많음', '화장실 칸 적음', '장애인 화장실', '성별 분리',
   '비데 설치 되어있음', '휴지 많음', '물 잘나옴', '냄새 좋음',
 ] as const;
 
+/* ----------------------------- 타입 ----------------------------- */
 interface KakaoPlace { id: string; place_name: string; x: string; y: string; }
 interface ToiletDbData { overallRating?: number; reviews?: { user: string; comment: string }[]; keywords?: string[]; }
 interface EnrichedToilet extends KakaoPlace { overallRating: number; reviews: { user: string; comment: string }[]; keywords: string[]; }
 interface Toilet extends EnrichedToilet { lat: number; lng: number; }
 
-type PaperSignalEvent = {
-  _id: string;
-  toiletId: string;
-  lat: number;
-  lng: number;
-  expiresAt: string;
-};
 type ActiveSignal = {
   _id: string;
   toiletId: string;
@@ -33,18 +29,22 @@ type ActiveSignal = {
   lng: number;
   createdAt: string;
   expiresAt: string;
+  // 서버에서 필터링되어 내려오므로 acceptedByUserId 등은 생략(표시 필요 없음)
 };
 
+/* kakao 메서드 보강(전역 타입 충돌 없이 사용) */
 type MapWithGetCenter = kakao.maps.Map & { getCenter(): kakao.maps.LatLng };
 type MapWithPanTo = kakao.maps.Map & { panTo(pos: kakao.maps.LatLng): void };
 type MarkerWithSetPosition = kakao.maps.Marker & { setPosition(pos: kakao.maps.LatLng): void };
 type LatLngWithGet = kakao.maps.LatLng & { getLat(): number; getLng(): number };
 
+/* ----------------------------- 유틸 ----------------------------- */
 const toNum = (v?: string | number | null) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
 
+/* --------------------------- 컴포넌트 --------------------------- */
 export default function MapView() {
   const router = useRouter();
   const pathname = usePathname();
@@ -57,9 +57,10 @@ export default function MapView() {
   const idleTimerRef = useRef<number | null>(null);
   const currentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
 
+  // 소켓/룸/오버레이 상태
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
-  const activeOverlayMapRef = useRef<Map<string, kakao.maps.CustomOverlay>>(new Map());
+  const overlayMapRef = useRef<Map<string, kakao.maps.CustomOverlay>>(new Map()); // signalId -> overlay
 
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<Toilet[]>([]);
@@ -67,78 +68,81 @@ export default function MapView() {
 
   const queryKeyword = searchParams?.get('query');
 
-  // 화면 스크롤 잠금 (지도를 꽉 차게)
+  /* -------- 페이지 진입 시 바디 스크롤 잠금 -------- */
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // 펄스 오버레이 추가 (중복 방지 + 마커 클릭 방해 X)
-  const addPulseOverlay = useCallback((payload: PaperSignalEvent | ActiveSignal) => {
+  /* --------------------- 오버레이 조작 함수 --------------------- */
+  const makePulseContent = () => {
+    const wrap = document.createElement('div');
+    // 클릭 통과를 위해 pointer-events: none 적용
+    wrap.style.pointerEvents = 'none';
+    wrap.className = 'pulse-wrapper';
+    const inner = document.createElement('div');
+    inner.className = 'pulse-signal';
+    wrap.appendChild(inner);
+    return wrap;
+  };
+
+  const addOverlay = useCallback((sig: ActiveSignal) => {
     if (!mapRef.current) return;
-    if (activeOverlayMapRef.current.has(payload._id)) return;
+    if (overlayMapRef.current.has(sig._id)) return;
 
-    const pos = new window.kakao.maps.LatLng(payload.lat, payload.lng);
-    const el = document.createElement('div');
-    el.className = 'pulse-wrapper';
-    el.innerHTML = '<div class="pulse-signal"></div>';
-
-    const overlay = new window.kakao.maps.CustomOverlay({
+    const pos = new window.kakao.maps.LatLng(sig.lat, sig.lng);
+    const ov = new window.kakao.maps.CustomOverlay({
       position: pos,
-      content: el,
+      content: makePulseContent(),
+      // 마커 중앙에 오도록 앵커 조정(아이콘/디자인에 따라 약간 조정 가능)
       xAnchor: 0.5,
       yAnchor: 0.5,
-      zIndex: 1,       // 마커(기본 3)보다 낮게
-      clickable: false // 클릭 이벤트 자체를 가지지 않게
+      zIndex: 1,       // 마커 아래
+      clickable: false // 클릭 이벤트 먹지 않음
     });
-    overlay.setMap(mapRef.current);
-    activeOverlayMapRef.current.set(payload._id, overlay);
-
-    const msLeft = Math.max(new Date(payload.expiresAt).getTime() - Date.now(), 5000);
-    window.setTimeout(() => {
-      overlay.setMap(null);
-      activeOverlayMapRef.current.delete(payload._id);
-    }, msLeft);
+    ov.setMap(mapRef.current);
+    overlayMapRef.current.set(sig._id, ov);
   }, []);
 
-  // 펄스 제거(수락/취소 등)
-  const removePulseOverlay = useCallback((signalId: string) => {
-    const ov = activeOverlayMapRef.current.get(signalId);
+  const removeOverlay = useCallback((signalId: string) => {
+    const ov = overlayMapRef.current.get(signalId);
     if (ov) {
       ov.setMap(null);
-      activeOverlayMapRef.current.delete(signalId);
+      overlayMapRef.current.delete(signalId);
     }
   }, []);
 
-  // 현재 마커들에 대한 활성 신호 캐치업
+  /** 서버에서 받은 활성 신호 집합으로 오버레이를 재조정(추가/삭제 동기화) */
+  const reconcileOverlays = useCallback((activeItems: ActiveSignal[]) => {
+    const nextIds = new Set(activeItems.map(s => s._id));
+    // 추가
+    activeItems.forEach(s => addOverlay(s));
+    // 제거(사라지거나 수락/취소/만료된 것)
+    Array.from(overlayMapRef.current.keys()).forEach((id) => {
+      if (!nextIds.has(id)) removeOverlay(id);
+    });
+  }, [addOverlay, removeOverlay]);
+
+  /* ---------------- 활성 신호 캐치업/동기화 ---------------- */
   const fetchActiveSignals = useCallback(async (toiletIds: string[]) => {
     if (!toiletIds.length) return;
     try {
       const idsParam = encodeURIComponent(toiletIds.join(','));
-      const resp = await fetch(`/api/signal/active?toiletIds=${idsParam}`);
+      const resp = await fetch(`/api/signal/active?toiletIds=${idsParam}`, { cache: 'no-store' });
       if (!resp.ok) return;
       const data = (await resp.json()) as { items?: ActiveSignal[] };
-      if (!data.items?.length) return;
-
-      data.items.forEach((sig) => {
-        addPulseOverlay({
-          _id: sig._id,
-          toiletId: sig.toiletId,
-          lat: sig.lat,
-          lng: sig.lng,
-          expiresAt: sig.expiresAt,
-        });
-      });
+      reconcileOverlays(data.items ?? []);
     } catch {
       // ignore
     }
-  }, [addPulseOverlay]);
+  }, [reconcileOverlays]);
 
-  // 마커 그리기 + 룸 동기화 + 캐치업
+  /* ----------------------- 마커 그리기 ----------------------- */
   const drawMarkers = useCallback((toilets: Toilet[]) => {
     if (!mapRef.current) return;
 
+    // 기존 마커 제거
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
@@ -197,7 +201,7 @@ export default function MapView() {
       });
     });
 
-    // 룸 join/leave
+    // 룸 join/leave 동기화
     if (socketRef.current) {
       const nextIds = new Set(toilets.map((t) => t.id));
       toilets.forEach((t) => {
@@ -214,11 +218,11 @@ export default function MapView() {
       }
     }
 
-    // 캐치업
+    // 현재 보이는 화장실들에 대한 활성 신호 동기화
     fetchActiveSignals(toilets.map((t) => t.id));
   }, [fetchActiveSignals, pathname, router]);
 
-  // 화장실 검색
+  /* ----------------------- 화장실 검색 ----------------------- */
   const searchToilets = useCallback(async (lat: number, lng: number, shouldCenter = true) => {
     const ps = new window.kakao.maps.services.Places();
 
@@ -257,7 +261,7 @@ export default function MapView() {
     );
   }, [drawMarkers, setToiletList]);
 
-  // 주소 검색
+  /* ----------------------- 주소 검색 ----------------------- */
   const handleQuerySearch = useCallback((keyword: string) => {
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
@@ -276,7 +280,7 @@ export default function MapView() {
     if (queryKeyword) handleQuerySearch(queryKeyword);
   }, [queryKeyword, handleQuerySearch]);
 
-  // 지도 초기화 + 소켓 연결
+  /* --------------- 지도 초기화 + 소켓 연결/동기화 --------------- */
   useEffect(() => {
     const s = document.createElement('script');
     s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services';
@@ -293,27 +297,63 @@ export default function MapView() {
           mapRef.current = new window.kakao.maps.Map(mapEl, { center, level: 3 });
           currentPosRef.current = center;
 
-          // 소켓 서버 초기화 → 연결
+          // 소켓 초기화 → 연결
           (async () => {
-            const resp = await fetch('/api/socketio-init', { cache: 'no-store' });
-            if (!resp.ok) {
-              console.error('socket init failed', resp.status);
-              return;
-            }
+            await fetch('/api/socketio-init', { cache: 'no-store' }).catch(() => {});
             const socket = io({ path: '/api/socket', transports: ['websocket'] });
             socketRef.current = socket;
 
             socket.on('connect', () => {
-              console.log('✅ socket connected', socket.id);
-              // 개발용 ALL 구독은 제거하고, 보이는 마커별 join으로만 운용
+              // ALL 방은 개발 중에만 필요할 수 있음
+              socket.emit('join_toilet', 'ALL');
             });
-            socket.on('connect_error', (err) => console.log('❌ connect_error', err.message));
 
-            socket.on('paper_request', (p: PaperSignalEvent) => addPulseOverlay(p));
-            socket.on('paper_accepted', (p: { _id: string }) => removePulseOverlay(p._id));
-            socket.on('paper_accept_canceled', () => {
-              // 취소 시 다시 깜빡이고 싶다면 active 캐치업을 트리거하거나 서버에서 재발행 이벤트를 추가하세요.
+            // 상태가 바뀔 때마다 서버가 보내는 단일 이벤트
+            const onChanged = (p: { toiletId?: string }) => {
+              // 현재 화면에 보이는 화장실들의 id 수집
+              const currentIds = (allToilets.length ? allToilets : [])
+                .map(t => t.id);
+              if (p?.toiletId && !currentIds.includes(String(p.toiletId))) return;
+              fetchActiveSignals(currentIds);
+            };
+
+            socket.on('signals_changed', onChanged);
+
+            // (안전망) 혹시 서버가 예전 이벤트명을 쓰면 다 캐치해서 동기화
+            socket.onAny((evt, payload: unknown) => {
+              const e = String(evt);
+              if (e.startsWith('paper_') || e.startsWith('signal_')) {
+                const currentIds = (allToilets.length ? allToilets : [])
+                  .map(t => t.id);
+                fetchActiveSignals(currentIds);
+              }
             });
+
+            // 10초 폴링(만료 자동 제거 등 보조)
+            const pollId = window.setInterval(() => {
+              const currentIds = (allToilets.length ? allToilets : [])
+                .map(t => t.id);
+              fetchActiveSignals(currentIds);
+            }, 10000);
+
+            // 포커스 복귀 시 동기화
+            const onFocus = () => {
+              const currentIds = (allToilets.length ? allToilets : [])
+                .map(t => t.id);
+              fetchActiveSignals(currentIds);
+            };
+            window.addEventListener('focus', onFocus);
+
+            // 정리
+            const cleanup = () => {
+              window.clearInterval(pollId);
+              window.removeEventListener('focus', onFocus);
+              socket.off('signals_changed', onChanged);
+              socket.offAny();
+              socket.disconnect();
+            };
+            // 언마운트 시 실행되도록 ref에 저장
+            (socketRef as React.MutableRefObject<Socket & { __cleanup?: () => void }>).current.__cleanup = cleanup;
           })();
 
           searchToilets(lat, lng);
@@ -336,14 +376,18 @@ export default function MapView() {
     };
 
     return () => {
-      socketRef.current?.off('paper_request');
-      socketRef.current?.off('paper_accepted');
-      socketRef.current?.off('paper_accept_canceled');
-      socketRef.current?.disconnect();
-    };
-  }, [queryKeyword, searchToilets, handleQuerySearch, addPulseOverlay, removePulseOverlay]);
+      // 소켓/타이머/리스너 정리
+      const sref = socketRef.current as Socket & { __cleanup?: () => void } | null;
+      if (sref?.__cleanup) sref.__cleanup();
+      else socketRef.current?.disconnect();
 
-  // 현재 위치 마커
+      // 남아있는 오버레이 제거
+      overlayMapRef.current.forEach(ov => ov.setMap(null));
+      overlayMapRef.current.clear();
+    };
+  }, [queryKeyword, searchToilets, handleQuerySearch, allToilets]);
+
+  /* ----------------------- 현재 위치 마커 ----------------------- */
   useEffect(() => {
     let currentMarker: kakao.maps.Marker | null = null;
     const watchId = navigator.geolocation.watchPosition(({ coords }) => {
@@ -371,7 +415,7 @@ export default function MapView() {
     }
   };
 
-  // 필터 변경 시 마커 리프레시
+  /* -------------------- 필터 변경 시 마커 갱신 -------------------- */
   useEffect(() => {
     drawMarkers(
       selectedFilters.length
@@ -380,6 +424,7 @@ export default function MapView() {
     );
   }, [selectedFilters, allToilets, drawMarkers]);
 
+  /* --------------------------- 렌더 --------------------------- */
   return (
     <div className="map-wrapper">
       <Header />
@@ -416,6 +461,7 @@ export default function MapView() {
         )}
       </div>
 
+      {/* 지도를 꽉 채우고, 위치 버튼은 오버레이로 */}
       <div className="map-container">
         <div id="map" />
         <button type="button" className="loc-btn" onClick={handleLocateClick}>
