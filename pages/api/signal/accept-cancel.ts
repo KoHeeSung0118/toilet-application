@@ -53,15 +53,20 @@ export default async function handler(
   const signals = db.collection<DbDoc>('signals');
 
   const now = new Date();
+  const tenFromNow = new Date(now.getTime() + 10 * 60 * 1000);
 
-  // 내가 수락한 건만 취소 가능
+  // 내가 수락한 건만 취소 가능 + 만료 시간은 (현재, now+10분) 중 더 작은 값으로 줄임
   const rawResult = await signals.findOneAndUpdate(
     {
       _id,
       expiresAt: { $gt: now },
       acceptedByUserId: userId,
     },
-    { $set: { acceptedByUserId: null }, $unset: { acceptedAt: '' } },
+    {
+      $set: { acceptedByUserId: null },
+      $unset: { acceptedAt: '' },
+      $min: { expiresAt: tenFromNow }, // 🔹 여기서 "최대 10분"으로 캡
+    },
     { returnDocument: 'after' }
   );
 

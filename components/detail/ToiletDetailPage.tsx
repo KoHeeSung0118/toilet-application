@@ -43,11 +43,13 @@ interface ActiveSignal {
   lat: number;
   lng: number;
   message?: string;
-  userId: string; // 요청자
-  acceptedByUserId?: string | null; // 구원자
+  userId: string;                  // 요청자
+  acceptedByUserId?: string | null;// 구원자
   createdAt: string;
   expiresAt: string;
 }
+
+type PaperEvent = ActiveSignal;
 
 export default function ToiletDetailPage({
   id,
@@ -56,8 +58,7 @@ export default function ToiletDetailPage({
   currentUserId,
   toilet,
 }: ToiletDetailPageProps) {
-  const rating =
-    typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
+  const rating = typeof toilet.overallRating === 'number' ? toilet.overallRating : 3;
   const encodedName = encodeURIComponent(placeName || toilet.place_name || '');
 
   const [activeSignals, setActiveSignals] = useState<ActiveSignal[]>([]);
@@ -82,8 +83,7 @@ export default function ToiletDetailPage({
 
   // 내 글/내가 수락 여부
   const isMine = (sig: ActiveSignal) => sig.userId === currentUserId;
-  const isAcceptedByMe = (sig: ActiveSignal) =>
-    sig.acceptedByUserId === currentUserId;
+  const isAcceptedByMe = (sig: ActiveSignal) => sig.acceptedByUserId === currentUserId;
 
   // 수락/취소 라벨
   const acceptedLabel = (sig: ActiveSignal): string => {
@@ -93,78 +93,109 @@ export default function ToiletDetailPage({
     return `구원자: ****${short}`;
   };
 
-  // 서버 상태 가져오기
+  // ✅ 서버 목록과 temp-* 카드를 "머지"해서 반영 (디자인 불변)
+  const mergeAndSet = useCallback((incoming: ActiveSignal[]) => {
+    setActiveSignals((prev) => {
+      const temps = prev.filter((x) => x._id.startsWith('temp-'));
+      const byId = new Map<string, ActiveSignal>();
+      for (const it of incoming) byId.set(it._id, it);
+      for (const t of temps) if (!byId.has(t._id)) byId.set(t._id, t);
+      const arr = Array.from(byId.values());
+      arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return arr;
+    });
+  }, []);
+
+  // 서버 상태 가져오기 → 반드시 merge 사용
   const fetchActive = useCallback(async () => {
     try {
-      const resp = await fetch(
-        `/api/signal/active?toiletIds=${encodeURIComponent(id)}`,
-        { cache: 'no-store' }
-      );
+      const resp = await fetch(`/api/signal/active?toiletIds=${encodeURIComponent(id)}`, { cache: 'no-store' });
       if (!resp.ok) return;
-      const data = (await resp.json()) as {
-        ok?: true;
-        items?: ActiveSignal[];
-      };
-      setActiveSignals(data.items ?? []);
+      const data = (await resp.json()) as { ok?: true; items?: ActiveSignal[] };
+      mergeAndSet(data.items ?? []);
     } catch {
       /* ignore */
     }
-  }, [id]);
+  }, [id, mergeAndSet]);
 
-  // 소켓 연결
+  // 🔹 옵티미스틱: 폼 제출 시작 시 임시 카드 즉시 추가 (DOM 변경 없음)
+  const onCreateStart = useCallback((p: { message?: string }): { tempId: string } => {
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const nowIso = new Date().toISOString();
+    const expIso = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const tempCard: ActiveSignal = {
+      _id: tempId,
+      toiletId: id,
+      lat: toilet.lat,
+      lng: toilet.lng,
+      message: p.message?.trim() || undefined,
+      userId: currentUserId,
+      acceptedByUserId: null,
+      createdAt: nowIso,
+      expiresAt: expIso,
+    };
+    setActiveSignals((prev) => [tempCard, ...prev]);
+    return { tempId };
+  }, [id, toilet.lat, toilet.lng, currentUserId]);
+
+  // 성공 시 temp → 실제 카드 교체
+  const onCreateSuccess = useCallback((args: { tempId: string; id: string; expiresAt: string; message?: string }) => {
+    setActiveSignals((prev) => {
+      const next = prev.filter((s) => s._id !== args.tempId && s._id !== args.id);
+      const real: ActiveSignal = {
+        _id: args.id,
+        toiletId: id,
+        lat: toilet.lat,
+        lng: toilet.lng,
+        message: args.message?.trim() || undefined,
+        userId: currentUserId,
+        acceptedByUserId: null,
+        createdAt: new Date().toISOString(),
+        expiresAt: args.expiresAt,
+      };
+      return [real, ...next];
+    });
+  }, [id, toilet.lat, toilet.lng, currentUserId]);
+
+  // 실패 시 temp 제거
+  const onCreateError = useCallback((tempId: string) => {
+    setActiveSignals((prev) => prev.filter((s) => s._id !== tempId));
+  }, []);
+
+  // 소켓 연결 (디자인 불변)
   useEffect(() => {
     let cancelled = false;
 
     const boot = async () => {
-      // 서버의 Socket.IO 준비
       await fetch('/api/socketio-init').catch(() => {});
       if (cancelled) return;
 
       const s = io({ path: '/api/socket', transports: ['websocket'] });
       socketRef.current = s;
 
-      const refetch = () => fetchActive();
-
       s.on('connect', () => {
         s.emit('join_toilet', id);
         s.emit('join_user', currentUserId);
       });
 
-      // 서버 이벤트 수신 시 재조회
-      s.on('paper_request', refetch);
+      // 서버 push는 즉시 upsert (refetch 없이)
+      s.on('paper_request', (payload: PaperEvent) => {
+        setActiveSignals((prev) => {
+          const filtered = prev.filter((x) => x._id !== payload._id);
+          return [payload, ...filtered];
+        });
+      });
+
+      // 나머지는 보수적으로 재조회(merge가 temp 유지)
+      const refetch = () => fetchActive();
       s.on('paper_accepted', refetch);
       s.on('paper_accept_canceled', refetch);
       s.on('paper_canceled', refetch);
       s.on('signals_changed', refetch);
 
-      // 이벤트명이 달라도 대응 (낙관적 보정 + 재조회)
-      s.onAny((event: string, payload: unknown) => {
+      s.onAny((event: string) => {
         const e = event.toLowerCase();
-        if (
-          e.includes('paper') ||
-          e.includes('signal') ||
-          e.includes('accept') ||
-          e.includes('cancel')
-        ) {
-          const p =
-            (payload as {
-              signalId?: string;
-              acceptedByUserId?: string | null;
-            }) ?? {};
-          if (p.signalId) {
-            setActiveSignals((prev) =>
-              prev.map((sig) =>
-                sig._id === p.signalId
-                  ? {
-                      ...sig,
-                      acceptedByUserId: e.includes('cancel')
-                        ? null
-                        : p.acceptedByUserId ?? sig.acceptedByUserId,
-                    }
-                  : sig
-              )
-            );
-          }
+        if (e.includes('paper') || e.includes('signal') || e.includes('accept') || e.includes('cancel')) {
           refetch();
         }
       });
@@ -185,26 +216,25 @@ export default function ToiletDetailPage({
     };
   }, [id, currentUserId, fetchActive]);
 
-  // 소켓 불안/이벤트 누락 대비: 활성 신호가 있으면 3초 폴링
+  // 소켓 누락 대비: 활성 신호가 있으면 3초 폴링(merge 유지)
   useEffect(() => {
     if (activeSignals.length === 0) return;
     const t = setInterval(fetchActive, 3000);
     return () => clearInterval(t);
   }, [activeSignals.length, fetchActive]);
 
-  // 수락/취소/요청취소 (옵티미스틱 + 실패 시 롤백)
+  // 수락/취소/요청취소 (옵티미스틱 + 실패 롤백)
   async function accept(signalId: string) {
     const rollback = activeSignals;
     setActiveSignals((prev) =>
-      prev.map((s) =>
-        s._id === signalId ? { ...s, acceptedByUserId: currentUserId } : s
-      )
+      prev.map((s) => (s._id === signalId ? { ...s, acceptedByUserId: currentUserId } : s))
     );
 
     const r = await fetch('/api/signal/accept', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signalId }),
+      credentials: 'same-origin',
     });
 
     if (!r.ok) {
@@ -219,15 +249,14 @@ export default function ToiletDetailPage({
   async function cancelAccept(signalId: string) {
     const rollback = activeSignals;
     setActiveSignals((prev) =>
-      prev.map((s) =>
-        s._id === signalId ? { ...s, acceptedByUserId: null } : s
-      )
+      prev.map((s) => (s._id === signalId ? { ...s, acceptedByUserId: null } : s))
     );
 
     const r = await fetch('/api/signal/accept-cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signalId }),
+      credentials: 'same-origin',
     });
 
     if (!r.ok) {
@@ -247,6 +276,7 @@ export default function ToiletDetailPage({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signalId }),
+      credentials: 'same-origin',
     });
     if (!r.ok) {
       setActiveSignals(rollback);
@@ -275,6 +305,7 @@ export default function ToiletDetailPage({
     return `${diffYear}년 전`;
   };
 
+  // ⬇️ 아래부터는 “처음 디자인”의 마크업/클래스 그대로 유지
   return (
     <div className="detail-page">
       <ClientOnlyBackButton />
@@ -290,25 +321,13 @@ export default function ToiletDetailPage({
         </div>
 
         <div className="btn-group">
-          <a
-            href={`/toilet/${id}/keywords?place_name=${encodedName}${
-              from ? `&from=${from}` : ''
-            }`}
-          >
+          <a href={`/toilet/${id}/keywords?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
             키워드 추가하기
           </a>
-          <a
-            href={`/toilet/${id}/rate?place_name=${encodedName}${
-              from ? `&from=${from}` : ''
-            }`}
-          >
+          <a href={`/toilet/${id}/rate?place_name=${encodedName}${from ? `&from=${from}` : ''}`}>
             별점 추가하기
           </a>
-          <DirectionsButton
-            placeName={toilet.place_name}
-            lat={toilet.lat}
-            lng={toilet.lng}
-          />
+          <DirectionsButton placeName={toilet.place_name} lat={toilet.lat} lng={toilet.lng} />
         </div>
       </div>
 
@@ -322,48 +341,30 @@ export default function ToiletDetailPage({
                 <div className="active-msg">
                   {s.message ?? '메시지 없음'}
                   {s.acceptedByUserId && (
-                    <div
-                      style={{
-                        color: '#4E3CDB',
-                        fontWeight: 600,
-                        marginTop: 4,
-                      }}
-                    >
+                    <div style={{ color: '#4E3CDB', fontWeight: 600, marginTop: 4 }}>
                       {acceptedLabel(s)}
                     </div>
                   )}
                 </div>
 
-                <div
-                  className="active-meta"
-                  style={{ display: 'flex', gap: 8, alignItems: 'center' }}
-                >
+                <div className="active-meta" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span>{timeLeft(s.expiresAt)}</span>
 
                   {/* 요청자: 본인 글이면 요청 취소 버튼 */}
                   {isMine(s) && (
-                    <button
-                      className="action-btn"
-                      onClick={() => cancelMyRequest(s._id)}
-                    >
+                    <button className="action-btn" onClick={() => cancelMyRequest(s._id)}>
                       요청 취소
                     </button>
                   )}
 
                   {/* 타인 글: 미수락/내가 수락 */}
                   {!isMine(s) && !s.acceptedByUserId && (
-                    <button
-                      className="action-btn"
-                      onClick={() => accept(s._id)}
-                    >
+                    <button className="action-btn" onClick={() => accept(s._id)}>
                       갈께요
                     </button>
                   )}
                   {!isMine(s) && isAcceptedByMe(s) && (
-                    <button
-                      className="action-btn"
-                      onClick={() => cancelAccept(s._id)}
-                    >
+                    <button className="action-btn" onClick={() => cancelAccept(s._id)}>
                       갈께요 취소
                     </button>
                   )}
@@ -383,6 +384,9 @@ export default function ToiletDetailPage({
             lat={toilet.lat}
             lng={toilet.lng}
             userId={currentUserId}
+            onCreateStart={onCreateStart}     // ✅ 로직만 추가, 디자인 그대로
+            onCreateSuccess={onCreateSuccess}
+            onCreateError={onCreateError}
           />
         </div>
         <div className="request-hint">
@@ -418,11 +422,7 @@ export default function ToiletDetailPage({
         <h3>댓글</h3>
         {toilet.reviews?.length ? (
           toilet.reviews
-            .sort(
-              (a, b) =>
-                new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime()
-            )
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .map((r) => (
               <div key={r._id} className="comment-item">
                 <div className="comment-content">
@@ -432,14 +432,9 @@ export default function ToiletDetailPage({
                   </div>
 
                   <div className="comment-right">
-                    <span className="comment-date">
-                      {formatTimeAgo(r.createdAt)}
-                    </span>
+                    <span className="comment-date">{formatTimeAgo(r.createdAt)}</span>
                     {r.userId === currentUserId && (
-                      <DeleteCommentButton
-                        toiletId={id}
-                        commentId={r._id}
-                      />
+                      <DeleteCommentButton toiletId={id} commentId={r._id} />
                     )}
                   </div>
                 </div>
@@ -452,9 +447,7 @@ export default function ToiletDetailPage({
 
       <a
         className="comment-btn"
-        href={`/toilet/${id}/comment?place_name=${encodedName}${
-          from ? `&from=${from}` : ''
-        }`}
+        href={`/toilet/${id}/comment?place_name=${encodedName}${from ? `&from=${from}` : ''}`}
       >
         댓글 추가하기
       </a>

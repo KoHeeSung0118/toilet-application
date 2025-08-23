@@ -314,6 +314,7 @@
 /* 1) 여러 줄 메시지에 맞게 상단 정렬 + 간격 */
 .active-item {
   display: flex;
+  flex: 1;
   align-items: flex-start;   /* ✅ 여러 줄일 때 상단 정렬 */
   justify-content: space-between;
   background: #fff;
