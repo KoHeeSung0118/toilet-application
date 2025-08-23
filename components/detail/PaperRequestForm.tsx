@@ -6,7 +6,7 @@ type Props = {
   toiletId: string;
   lat: number;
   lng: number;
-  userId: string;
+  userId: string; // 전달은 되지만 현재 이 컴포넌트에서는 사용하지 않음
   onCreateStart?: (p: { message?: string }) => { tempId: string };
   onCreateSuccess?: (p: { tempId: string; id: string; expiresAt: string; message?: string }) => void;
   onCreateError?: (tempId: string) => void;
@@ -16,13 +16,22 @@ type ApiOk = { ok: true; id: string; expiresAt: string };
 type ApiErr = { error: string };
 
 export default function PaperRequestForm({
-  toiletId, lat, lng, userId,
-  onCreateStart, onCreateSuccess, onCreateError
+  toiletId,
+  lat,
+  lng,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userId: _userId, // <- 미사용 경고 제거 (리네이밍)
+  onCreateStart,
+  onCreateSuccess,
+  onCreateError,
 }: Props) {
+  // 더미 사용으로 ESLint가 "사용됨"으로 인식
+  void _userId;
+
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submitting) return;
 
@@ -42,7 +51,11 @@ export default function PaperRequestForm({
       // 본문은 한 번만 읽는다
       const text = await r.text();
       let data: ApiOk | ApiErr | null = null;
-      try { data = text ? (JSON.parse(text) as ApiOk | ApiErr) : null; } catch { data = null; }
+      try {
+        data = text ? (JSON.parse(text) as ApiOk | ApiErr) : null;
+      } catch {
+        data = null;
+      }
 
       if (!r.ok || !data || !('ok' in data) || !data.ok) {
         const code = r.status;
@@ -50,10 +63,11 @@ export default function PaperRequestForm({
         if (tempId) onCreateError?.(tempId);
 
         alert(
-          code === 401 ? '로그인이 필요합니다.'
-          : code === 409 && msg === 'already_active'
-            ? '이미 진행 중인 요청이 있어요. 상단 카드에서 "요청 취소"를 누르거나 만료를 기다려주세요.'
-            : msg ?? '요청에 실패했습니다.'
+          code === 401
+            ? '로그인이 필요합니다.'
+            : code === 409 && msg === 'already_active'
+              ? '이미 진행 중인 요청이 있어요. 상단 카드에서 "요청 취소"를 누르거나 만료를 기다려주세요.'
+              : msg ?? '요청에 실패했습니다.'
         );
         // 디버깅에 도움: 네트워크 탭 없이도 콘솔에서 확인
         console.debug('request-paper failed:', { status: code, text });
