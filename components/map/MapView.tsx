@@ -1,3 +1,4 @@
+// components/map/MapView.tsx
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -10,7 +11,7 @@ import io, { Socket } from 'socket.io-client';
 // Header는 클라 전용 로드
 const Header = dynamic(() => import('@/components/common/Header'), { ssr: false });
 
-/* ===== 전역 Window 타입 보강 ===== */
+/* ===== 전역 Window 타입 보강 (any 금지) ===== */
 declare global {
   interface Window {
     __KAKAO_MAPS_LOADED?: boolean;
@@ -30,9 +31,8 @@ const FILTERS = [
   '냄새 좋음',
 ] as const;
 
-// 재검색 기준
-const SEARCH_DISTANCE_M = 500;     // 최소 이동거리
-const SEARCH_COOLDOWN_MS = 4000;   // 최소 간격
+const SEARCH_DISTANCE_M = 500;     // idle 후 재검색 최소 이동거리
+const SEARCH_COOLDOWN_MS = 4000;   // idle 후 재검색 최소 간격
 
 /* ----------------------------- 타입 ----------------------------- */
 interface KakaoPlace { id: string; place_name: string; x: string; y: string; }
@@ -49,13 +49,11 @@ type ActiveSignal = {
   expiresAt: string;
 };
 
-/* ---- 카카오 보조 타입(정확한 타입 지정) ---- */
+/* ---- 카카오 보조 타입(전역 kakao를 수정하지 않고 구조 타이핑) ---- */
 type MapWithGetCenter = kakao.maps.Map & { getCenter(): kakao.maps.LatLng };
 type MapWithPanTo = kakao.maps.Map & { panTo(pos: kakao.maps.LatLng): void };
-// LatLngBounds 전체 타입이 없어도 우리가 쓰는 contain 메서드만 명세
-type BoundsLike = { contain(latlng: kakao.maps.LatLng): boolean };
-type MapWithBounds = kakao.maps.Map & { getBounds(): BoundsLike };
-
+type LatLngBoundsLike = { contain: (latlng: kakao.maps.LatLng) => boolean };
+type MapWithBounds = kakao.maps.Map & { getBounds(): LatLngBoundsLike };
 type LatLngGettable = kakao.maps.LatLng & { getLat(): number; getLng(): number };
 type MarkerWithSetPosition = kakao.maps.Marker & { setPosition(pos: kakao.maps.LatLng): void };
 type SocketWithCleanup = Socket & { __cleanup?: () => void };
@@ -78,7 +76,7 @@ function dist(a: LatLngGettable, b: LatLngGettable): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** Kakao SDK 로더(싱글톤) */
+/** Kakao SDK 로더(싱글톤, any 없음) */
 function loadKakao(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
   if (window.__KAKAO_MAPS_LOADED) return Promise.resolve();
@@ -102,6 +100,28 @@ function loadKakao(): Promise<void> {
   });
 }
 
+/** 배포에서 정적 자산 존재 여부 확인 */
+async function assetExists(path: string): Promise<boolean> {
+  try {
+    const res = await fetch(path, { method: 'HEAD', cache: 'no-store' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 정적 자산이 있을 때만 마커 이미지 적용 (없으면 기본 마커 유지) */
+async function setMarkerImageIfExists(
+  marker: kakao.maps.Marker,
+  path: string,
+  size: kakao.maps.Size
+) {
+  if (await assetExists(path)) {
+    const img = new window.kakao.maps.MarkerImage(path, size);
+    marker.setImage(img);
+  }
+}
+
 /* --------------------------- 컴포넌트 --------------------------- */
 export default function MapView() {
   const router = useRouter();
@@ -110,7 +130,7 @@ export default function MapView() {
   const { setToiletList } = useToilet();
 
   const mapRef = useRef<kakao.maps.Map | null>(null);
-  const markersByIdRef = useRef<Map<string, kakao.maps.Marker>>(new Map());
+  const markersByIdRef = useRef<Map<String, kakao.maps.Marker>>(new Map());
   const currentPosRef = useRef<kakao.maps.LatLng | null>(null);
   const currentOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
 
@@ -187,7 +207,9 @@ export default function MapView() {
       if (!resp.ok) return;
       const data = (await resp.json()) as { items?: ActiveSignal[] };
       reconcileOverlays(data.items ?? []);
-    } catch { /* ignore */ }
+    } catch {
+      // ignore
+    }
   }, [reconcileOverlays]);
 
   /* -------- 마커 DIFF 렌더링(+ room 동기화 + 캐치업) -------- */
@@ -199,7 +221,7 @@ export default function MapView() {
 
     // 제거: 사라진 마커 제거
     for (const [id, m] of markersByIdRef.current.entries()) {
-      if (!nextIds.has(id)) {
+      if (!nextIds.has(id as string)) {
         m.setMap(null);
         markersByIdRef.current.delete(id);
       }
@@ -213,10 +235,12 @@ export default function MapView() {
         marker = new window.kakao.maps.Marker({
           map,
           position: pos,
-          image: new window.kakao.maps.MarkerImage('/marker/toilet-icon.png', new window.kakao.maps.Size(40, 40)),
-          zIndex: 10,
+          zIndex: 10, // 우선 기본 마커로 띄움
         });
         markersByIdRef.current.set(place.id, marker);
+
+        // ✅ 배포에서 파일이 있을 때만 이미지 입히기 (없으면 기본 마커 유지)
+        void setMarkerImageIfExists(marker, '/marker/toilet-icon.png', new window.kakao.maps.Size(40, 40));
 
         // 오버레이
         const html = `
@@ -238,14 +262,12 @@ export default function MapView() {
           clickable: false,
         });
 
-        // 마커 클릭 시: 뷰포트 밖일 때만 panTo
+        // ✅ 마커 클릭 시: 위치로 panTo + 오버레이 열기
         window.kakao.maps.event.addListener(marker, 'click', () => {
+          (map as MapWithPanTo).panTo(pos);
           if (currentOverlayRef.current && currentOverlayRef.current !== overlay) {
             currentOverlayRef.current.setMap(null);
           }
-          const bounds = (map as MapWithBounds).getBounds();
-          const isInside = bounds.contain(pos);
-          if (!isInside) (map as MapWithPanTo).panTo(pos);
           overlay.setMap(map);
           currentOverlayRef.current = overlay;
 
@@ -370,7 +392,7 @@ export default function MapView() {
             socketRef.current = socket;
 
             const reSync = () => {
-              const ids = Array.from(markersByIdRef.current.keys());
+              const ids = Array.from(markersByIdRef.current.keys()).map(String);
               fetchActiveSignals(ids);
             };
 
@@ -423,7 +445,7 @@ export default function MapView() {
       });
     })();
 
-    // cleanup (스냅샷 사용)
+    // cleanup (스냅샷으로 경고 제거)
     return () => {
       canceled = true;
 
@@ -454,9 +476,10 @@ export default function MapView() {
         currentMarker = new window.kakao.maps.Marker({
           map: mapRef.current,
           position: latLng,
-          image: new window.kakao.maps.MarkerImage('/marker/location-icon.png', new window.kakao.maps.Size(36, 36)),
-          zIndex: 9999,
+          zIndex: 9999, // 기본 마커로 우선 표시
         });
+        // 파일 있으면만 아이콘 적용
+        void setMarkerImageIfExists(currentMarker, '/marker/location-icon.png', new window.kakao.maps.Size(36, 36));
       } else {
         (currentMarker as MarkerWithSetPosition).setPosition(latLng);
       }
