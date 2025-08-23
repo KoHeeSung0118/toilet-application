@@ -1,6 +1,6 @@
 // pages/api/toilet/[id]/rate.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb';
 
 /** 개별 사용자 평점 구조 */
 type RatingRecord = {
@@ -27,7 +27,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: '필수 항목 누락' });
   }
 
-  const db = (await connectDB).db('toilet_app');
+  const client = await connectDB;
+  const db = client.db('toilet_app');
 
   try {
     /* 화장실 문서 조회 */
@@ -52,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     /* 평균 계산 */
     const avg = (field: keyof Omit<RatingRecord, 'userId' | 'createdAt'>) =>
-      Math.round(records.reduce((s, r) => s + r[field], 0) / records.length * 10) / 10;
+      Math.round((records.reduce((s, r) => s + r[field], 0) / records.length) * 10) / 10;
 
     const updated = {
       $set: {

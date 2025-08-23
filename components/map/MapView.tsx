@@ -54,6 +54,8 @@ type MapWithPanTo = kakao.maps.Map & { panTo(pos: kakao.maps.LatLng): void };
 type LatLngGettable = kakao.maps.LatLng & { getLat(): number; getLng(): number };
 type MarkerWithSetPosition = kakao.maps.Marker & { setPosition(pos: kakao.maps.LatLng): void };
 type SocketWithCleanup = Socket & { __cleanup?: () => void };
+/* ✅ Kakao 타입 보강: Marker#setImage(런타임 존재하지만 d.ts에 없음) */
+type MarkerWithSetImage = kakao.maps.Marker & { setImage(img: kakao.maps.MarkerImage): void };
 
 /* ----------------------------- 유틸 ----------------------------- */
 const toNum = (v?: string | number | null) => {
@@ -115,7 +117,7 @@ async function setMarkerImageIfExists(
 ) {
   if (await assetExists(path)) {
     const img = new window.kakao.maps.MarkerImage(path, size);
-    marker.setImage(img);
+    (marker as MarkerWithSetImage).setImage(img); // ✅ 타입 보강으로 오류 해결
   }
 }
 
@@ -216,7 +218,7 @@ export default function MapView() {
     const map = mapRef.current;
     const nextIds = new Set<string>(toilets.map(t => t.id));
 
-    // 제거: 사라진 마커 제거
+    // 제거
     for (const [id, m] of markersByIdRef.current.entries()) {
       if (!nextIds.has(id)) {
         m.setMap(null);
@@ -236,7 +238,7 @@ export default function MapView() {
         });
         markersByIdRef.current.set(place.id, marker);
 
-        // 배포에서 파일이 있을 때만 이미지 입히기 (없으면 기본 마커 유지)
+        // 정적 아이콘 있으면 적용
         void setMarkerImageIfExists(marker, '/marker/toilet-icon.png', new window.kakao.maps.Size(40, 40));
 
         // 오버레이
@@ -259,7 +261,7 @@ export default function MapView() {
           clickable: false,
         });
 
-        // ✅ 마커 클릭 시: 해당 위치로 panTo 후 오버레이 표시
+        // 클릭: 해당 위치로 panTo + 오버레이
         window.kakao.maps.event.addListener(marker, 'click', () => {
           (map as MapWithPanTo).panTo(pos);
           if (currentOverlayRef.current && currentOverlayRef.current !== overlay) {
@@ -279,7 +281,6 @@ export default function MapView() {
           router.push(`/toilet/${place.id}?place_name=${encodeURIComponent(place.place_name)}&from=${encodeURIComponent(pathname || '')}`);
         });
       } else {
-        // 위치 업데이트(변경 가능성은 낮지만 안전하게)
         (marker as MarkerWithSetPosition).setPosition(pos);
       }
     });
@@ -300,7 +301,7 @@ export default function MapView() {
       }
     }
 
-    // 현재 보이는 화장실들에 대한 활성 신호 캐치업
+    // 활성 신호 캐치업
     fetchActiveSignals(toilets.map(t => t.id));
   }, [fetchActiveSignals, pathname, router]);
 
@@ -329,7 +330,6 @@ export default function MapView() {
         setAllToilets(converted);
         drawMarkers(converted);
 
-        // 검색 기준 업데이트
         lastSearchCenterRef.current = new window.kakao.maps.LatLng(lat, lng) as LatLngGettable;
         lastSearchAtRef.current = Date.now();
 
@@ -374,13 +374,11 @@ export default function MapView() {
           const mapEl = document.getElementById('map');
           if (!mapEl) return;
 
-          // 지도 생성(초기 1회만 센터 지정)
           mapRef.current = new window.kakao.maps.Map(mapEl, { center, level: 3 });
           currentPosRef.current = center;
           lastSearchCenterRef.current = center as LatLngGettable;
           lastSearchAtRef.current = Date.now();
 
-          // 소켓 연결(보이는 화장실만 방 조인)
           (async () => {
             await fetch('/api/socketio-init', { cache: 'no-store' }).catch(() => {});
             const socket = io({ path: '/api/socket', transports: ['websocket'] }) as SocketWithCleanup;
@@ -397,7 +395,6 @@ export default function MapView() {
               if (evtName.startsWith('paper_') || evtName.startsWith('signal_')) reSync();
             });
 
-            // 폴백: 20초마다 / 포커스시 동기화
             const pollId = window.setInterval(reSync, 20000);
             const onFocus = () => reSync();
             window.addEventListener('focus', onFocus);
@@ -411,11 +408,9 @@ export default function MapView() {
             };
           })();
 
-          // 첫 검색은 페인트 이후로 지연하여 체감 렌더 빠르게
           requestAnimationFrame(() => searchToilets(lat, lng, false));
           if (queryKeyword) handleQuerySearch(queryKeyword);
 
-          // idle 핸들러(500m/4s 조건 만족 시에만)
           window.kakao.maps.event.addListener(mapRef.current!, 'idle', () => {
             if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
             idleTimerRef.current = window.setTimeout(() => {
@@ -431,7 +426,6 @@ export default function MapView() {
           });
         };
 
-        // 현재 위치 → 초기 1회만 센터
         navigator.geolocation.getCurrentPosition(
           (pos) => initMap(pos.coords.latitude, pos.coords.longitude),
           ()   => initMap(37.5665, 126.9780),
@@ -440,7 +434,7 @@ export default function MapView() {
       });
     })();
 
-    // ⚠ cleanup 경고 해결: 마운트 시점의 참조를 캡처해서 사용
+    // cleanup 스냅샷
     const overlayMapAtMount = overlayMapRef.current;
     const markersMapAtMount = markersByIdRef.current;
 
@@ -490,7 +484,6 @@ export default function MapView() {
       );
     }
 
-    // 3초 내 업데이트가 없으면 맵 센터에 폴백 마커
     const fallbackId = window.setTimeout(() => {
       if (!currentMarker && mapRef.current) {
         const c = (mapRef.current as MapWithGetCenter).getCenter();
@@ -559,7 +552,6 @@ export default function MapView() {
         )}
       </div>
 
-      {/* 지도를 꽉 채우고, 위치 버튼은 오버레이로 */}
       <div className="map-container">
         <div id="map" />
         <button type="button" className="loc-btn" onClick={handleLocateClick}>

@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { ObjectId } from 'mongodb';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb';
+import { WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 
 type Item = {
@@ -17,8 +17,8 @@ type Item = {
 
 type ApiResp = { ok: true; items: Item[] };
 
+// ✅ _id를 여기에 넣지 마세요. Mongo가 WithId<T>로 합쳐줍니다.
 type DbDoc = {
-  _id: ObjectId;
   toiletId: string;
   lat: number;
   lng: number;
@@ -34,30 +34,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   if (req.method !== 'GET') return res.status(405).end();
 
   const uid = getUserFromTokenInAPI(req);
-  const raw = (req.query.toiletIds as string | undefined) ?? '';
-  const ids = raw.split(',').map(s => s.trim()).filter(Boolean);
+
+  const qp = req.query.toiletIds;
+  const raw = Array.isArray(qp) ? qp.join(',') : (qp ?? '');
+  const ids = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))].slice(0, 100);
+
   if (!ids.length) return res.status(200).json({ ok: true, items: [] });
 
   const now = new Date();
-  const db = (await connectDB).db('toilet');
+  const client = await connectDB;
+  const db = client.db('toilet');
   const signals = db.collection<DbDoc>('signals');
 
-  const docs = await signals.find({
-    toiletId: { $in: ids },
-    canceledAt: { $exists: false },
-    expiresAt: { $gt: now },
-  }).sort({ createdAt: -1 }).toArray();
+  const visibilityOr = uid
+    ? [
+        { acceptedByUserId: null },
+        { acceptedByUserId: { $exists: false } },
+        { userId: uid },
+        { acceptedByUserId: uid },
+      ]
+    : [
+        { acceptedByUserId: null },
+        { acceptedByUserId: { $exists: false } },
+      ];
 
-  // ✅ 수락된 요청은 요청자/구원자만 보이게
-  const filtered = docs.filter(d => {
-    const accepted = !!d.acceptedByUserId;
-    if (!accepted) return true;
-    if (!uid) return false;
-    return d.userId === uid || d.acceptedByUserId === uid;
-  });
+  const docs: WithId<DbDoc>[] = await signals
+    .find(
+      {
+        toiletId: { $in: ids },
+        canceledAt: { $exists: false },
+        expiresAt: { $gt: now },
+        $or: visibilityOr,
+      },
+      {
+        projection: {
+          _id: 1, // 명시적으로 포함
+          toiletId: 1,
+          lat: 1,
+          lng: 1,
+          message: 1,
+          userId: 1,
+          acceptedByUserId: 1,
+          createdAt: 1,
+          expiresAt: 1,
+        },
+      }
+    )
+    .sort({ createdAt: -1 })
+    .toArray();
 
-  const items: Item[] = filtered.map(d => ({
-    _id: d._id.toHexString(),
+  const items: Item[] = docs.map(d => ({
+    _id: d._id.toHexString(), // ✅ 이제 타입이 확실해서 에러 없음
     toiletId: d.toiletId,
     lat: d.lat,
     lng: d.lng,

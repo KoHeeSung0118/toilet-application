@@ -1,6 +1,6 @@
 // pages/api/signal/cancel.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb';
 import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
@@ -42,14 +42,23 @@ export default async function handler(
   const { signalId } = req.body as { signalId?: string };
   if (!signalId) return res.status(400).json({ error: 'Invalid payload' });
 
-  const db = (await connectDB).db('toilet');
+  // ✅ ObjectId 유효성 검사
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(signalId);
+  } catch {
+    return res.status(400).json({ error: 'Invalid signalId' });
+  }
+
+  const client = await connectDB;
+  const db = client.db('toilet');
   const signals = db.collection<PaperSignalDoc>('signals');
 
   const now = new Date();
 
   // 요청자가 본인 글을 취소(아직 만료 전)
   const rawResult = await signals.findOneAndDelete({
-    _id: new ObjectId(signalId),
+    _id,
     userId,
     expiresAt: { $gt: now },
   });

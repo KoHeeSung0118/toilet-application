@@ -1,5 +1,6 @@
+// pages/api/toilet/[id].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb';
 
 /* ─ Kakao 검색 API 응답 최소 타입 ─ */
 interface KakaoDoc {

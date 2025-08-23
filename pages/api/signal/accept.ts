@@ -1,6 +1,6 @@
 // pages/api/signal/accept.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb'; // ✅ lib/mongodb.ts를 바로 사용
 import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
@@ -19,6 +19,7 @@ interface PaperSignalDoc {
   acceptedByUserId: string | null; // 구원자
 }
 
+// findOneAndUpdate 드라이버 버전별 대응
 function unwrapValue<T>(res: unknown): WithId<T> | null {
   if (res && typeof res === 'object') {
     if (Object.prototype.hasOwnProperty.call(res, 'value')) {
@@ -41,7 +42,16 @@ export default async function handler(
   const { signalId } = req.body as { signalId?: string };
   if (!signalId) return res.status(400).json({ error: 'Invalid payload' });
 
-  const db = (await connectDB).db('toilet');
+  // ✅ ObjectId 형식 유효성 방어
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(signalId);
+  } catch {
+    return res.status(400).json({ error: 'Invalid signalId' });
+  }
+
+  const client = await connectDB;
+  const db = client.db('toilet');
   const signals = db.collection<PaperSignalDoc>('signals');
 
   const now = new Date();
@@ -49,7 +59,7 @@ export default async function handler(
 
   const rawResult = await signals.findOneAndUpdate(
     {
-      _id: new ObjectId(signalId),
+      _id,
       expiresAt: { $gt: now },
       acceptedByUserId: null, // 아직 아무도 수락X
     },
@@ -63,8 +73,11 @@ export default async function handler(
   );
 
   const updated = unwrapValue<PaperSignalDoc>(rawResult);
-  if (!updated) return res.status(409).json({ error: 'Already accepted or expired' });
+  if (!updated) {
+    return res.status(409).json({ error: 'Already accepted or expired' });
+  }
 
+  // 소켓 알림 (실패해도 요청은 성공 처리)
   try {
     const io = getSocketServer();
     io.to(`toilet:${updated.toiletId}`).emit('signals_changed', {

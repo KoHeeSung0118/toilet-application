@@ -3,7 +3,7 @@
 // app/toilet/[id]/rate/page.tsx
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb';
 import RatingPage from './RatingPage';
 
 export type RatingRecord = {

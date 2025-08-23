@@ -1,10 +1,10 @@
-// ✅ pages/api/toilet/[id]/comment.ts
+// pages/api/toilet/[id]/comment.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb';
 import jwt from 'jsonwebtoken';
 
 type Review = {
-  _id: string;
+  _id: string;          // 문자열(ISO)로 저장
   userId: string;
   nickname: string;
   comment: string;
@@ -15,70 +15,65 @@ interface ToiletDoc {
   reviews?: Review[];
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: '허용되지 않은 메서드입니다.' });
   }
 
-  /* JWT 검증 */
+  // 1) JWT 검증
   const token = req.cookies.token;
   if (!token) return res.status(401).json({ message: '로그인이 필요합니다.' });
 
   let userId = '';
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as { userId: string };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { userId: string };
     userId = decoded.userId;
   } catch {
     return res.status(401).json({ message: '유효하지 않은 토큰입니다.' });
   }
 
-  /* 파라미터 */
-  const { comment } = req.body;
-  if (!comment?.trim()) {
-    return res.status(400).json({ message: '댓글이 비어있습니다.' });
-  }
-  const toiletId = req.query.id as string;
+  // 2) 파라미터
+  const toiletId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+  const { comment } = (req.body ?? {}) as { comment?: string };
+  const clean = (comment ?? '').trim();
+  if (!toiletId) return res.status(400).json({ message: '화장실 ID가 필요합니다.' });
+  if (!clean) return res.status(400).json({ message: '댓글이 비어있습니다.' });
+  if (clean.length > 1000) return res.status(400).json({ message: '댓글은 1000자 이하여야 합니다.' });
 
-  /* DB */
-  const db = (await connectDB).db('toilet_app');
+  // 3) DB
+  const client = await connectDB;
+  const db = client.db('toilet_app');
   const toilets = db.collection<ToiletDoc>('toilets');
 
-  const toilet = await toilets.findOne({ id: toiletId });
-  if (!toilet) {
-    return res.status(404).json({ message: '해당 화장실을 찾을 수 없습니다.' });
-  }
+  const toilet = await toilets.findOne({ id: String(toiletId) }, { projection: { id: 1, reviews: 1 } });
+  if (!toilet) return res.status(404).json({ message: '해당 화장실을 찾을 수 없습니다.' });
 
-  /* 닉네임 */
+  // 4) 닉네임 계산(해당 화장실 내에서 동일 userId 유지, 없으면 새 번호)
   const reviews = toilet.reviews ?? [];
-  const nicknameMap: Record<string, string> = {};
-  let count = 1;
-  for (const r of reviews) {
-    if (!nicknameMap[r.userId]) nicknameMap[r.userId] = `익명${count++}`;
+  const existing = reviews.find(r => r.userId === userId);
+  let nickname = existing?.nickname;
+  if (!nickname) {
+    // 간단히 기존 고유 사용자 수 + 1 사용
+    const uniqueUsers = new Set(reviews.map(r => r.userId));
+    nickname = `익명${uniqueUsers.size + 1}`;
   }
-  const nickname = nicknameMap[userId] ?? `익명${count}`;
 
-  /* 새 댓글 */
+  // 5) 새 댓글 생성
+  const now = new Date();
   const newComment: Review = {
-    _id: new Date().toISOString(),
+    _id: now.toISOString(),
     userId,
     nickname,
-    comment: comment.trim(),
-    createdAt: new Date(),
+    comment: clean,
+    createdAt: now,
   };
 
-  /* $push ― $each 로 타입 오류 해결 */
+  // 6) 저장
   await toilets.updateOne(
-    { id: toiletId },
-    {
-      $push: { reviews: { $each: [newComment] } },
-    }
+    { id: String(toiletId) },
+    { $push: { reviews: { $each: [newComment] } } }
   );
 
-  return res.status(200).json({ success: true });
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json({ success: true, comment: { ...newComment } });
 }

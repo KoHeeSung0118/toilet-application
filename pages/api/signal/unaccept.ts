@@ -1,11 +1,31 @@
 // pages/api/signal/unaccept.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { ObjectId } from 'mongodb';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb';
+import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
 
 type ApiResp = { ok?: true; error?: string };
+
+interface PaperSignalDoc {
+  _id?: ObjectId;
+  toiletId: string;
+  lat: number;
+  lng: number;
+  userId: string;                 // 요청자
+  message?: string;
+  createdAt: Date;
+  expiresAt: Date;
+  acceptedByUserId: string | null; // 구원자
+}
+
+function unwrapValue<T>(res: unknown): WithId<T> | null {
+  if (res && typeof res === 'object' && Object.prototype.hasOwnProperty.call(res, 'value')) {
+    const v = (res as { value?: WithId<T> | null }).value;
+    return v ?? null;
+  }
+  return (res as WithId<T> | null) ?? null;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResp>) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -13,32 +33,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   const userId = getUserFromTokenInAPI(req);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { signalId } = req.body as { signalId: string };
+  const { signalId } = req.body as { signalId?: string };
   if (!signalId) return res.status(400).json({ error: 'signalId required' });
 
-  const db = (await connectDB).db('toilet');
-  const signals = db.collection('signals');
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(signalId);
+  } catch {
+    return res.status(400).json({ error: 'Invalid signalId' });
+  }
 
-  const _id = new ObjectId(signalId);
-  const doc = await signals.findOne({ _id });
-  if (!doc) return res.status(404).json({ error: 'Not found' });
-  if (doc.acceptedBy !== userId) return res.status(403).json({ error: 'Not your acceptance' });
+  const client = await connectDB;
+  const db = client.db('toilet');
+  const signals = db.collection<PaperSignalDoc>('signals');
 
-  // 수락 취소 → acceptedBy null + 10분 타이머 재부여
-  const newExpires = new Date(Date.now() + 10 * 60 * 1000);
-  await signals.updateOne(
-    { _id },
-    { $set: { acceptedBy: null, expiresAt: newExpires } }
+  const now = new Date();
+  const newExpires = new Date(now.getTime() + 10 * 60 * 1000);
+
+  // ✅ 내가 수락한 건 + 아직 유효한 건만 unaccept (원자적 업데이트)
+  const raw = await signals.findOneAndUpdate(
+    {
+      _id,
+      acceptedByUserId: userId,
+      expiresAt: { $gt: now },
+    },
+    {
+      $set: { acceptedByUserId: null, expiresAt: newExpires },
+    },
+    { returnDocument: 'after' }
   );
+
+  const updated = unwrapValue<PaperSignalDoc>(raw);
+  if (!updated) {
+    return res.status(409).json({ error: 'Not your acceptance or expired' });
+  }
 
   try {
     const io = getSocketServer();
-    io.to(`toilet:${doc.toiletId}`).to('toilet:ALL').emit('paper_unaccept', {
-      _id: signalId,
-      acceptedBy: null,
+    // 다른 엔드포인트와 동일하게 signals_changed 이벤트로 방송
+    io.to(`toilet:${updated.toiletId}`).emit('signals_changed', {
+      type: 'paper_unaccepted',
+      signalId,
+      toiletId: updated.toiletId,
+      acceptedByUserId: null,
       expiresAt: newExpires.toISOString(),
     });
-  } catch {}
+  } catch {
+    /* noop */
+  }
 
   return res.status(200).json({ ok: true });
 }

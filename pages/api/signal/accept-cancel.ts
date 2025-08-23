@@ -1,6 +1,6 @@
 // pages/api/signal/accept-cancel.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectDB } from '@/util/database';
+import connectDB from '@/lib/mongodb'; // ✅ lib/mongodb.ts의 clientPromise 사용
 import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
 import { getSocketServer } from '@/util/socketServer';
@@ -19,6 +19,7 @@ interface PaperSignalDoc {
   acceptedByUserId: string | null;
 }
 
+// findOneAndUpdate 드라이버 버전별 대응
 function unwrapValue<T>(res: unknown): WithId<T> | null {
   if (res && typeof res === 'object') {
     if (Object.prototype.hasOwnProperty.call(res, 'value')) {
@@ -41,14 +42,23 @@ export default async function handler(
   const { signalId } = req.body as { signalId?: string };
   if (!signalId) return res.status(400).json({ error: 'Invalid payload' });
 
-  const db = (await connectDB).db('toilet');
+  // ✅ ObjectId 형식 방어
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(signalId);
+  } catch {
+    return res.status(400).json({ error: 'Invalid signalId' });
+  }
+
+  const client = await connectDB;
+  const db = client.db('toilet');
   const signals = db.collection<PaperSignalDoc>('signals');
 
   const now = new Date();
 
   const rawResult = await signals.findOneAndUpdate(
     {
-      _id: new ObjectId(signalId),
+      _id,
       expiresAt: { $gt: now },
       acceptedByUserId: userId, // 내가 수락한 건만 취소 가능
     },
