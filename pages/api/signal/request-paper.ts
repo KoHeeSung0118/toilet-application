@@ -1,9 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import type { Server as HTTPServer } from 'http';
 import connectDB from '@/lib/mongodb';
 import type { InsertOneResult } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
-import { getSocketServer } from '@/util/socketServer';
+import { emitToiletEvent } from '@/lib/pusher';
 
 interface ApiResp {
   ok?: true;
@@ -35,27 +34,32 @@ interface PaperSignalDoc {
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResp>
-) {
+): Promise<void> {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
   }
 
   const userId = getUserFromTokenInAPI(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
   const { toiletId, lat, lng, message } = req.body as Body;
 
-  // ✅ 기본 유효성
+  // 기본 유효성
   if (!toiletId || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return res.status(400).json({ error: 'Invalid payload' });
+    res.status(400).json({ error: 'Invalid payload' });
+    return;
   }
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return res.status(400).json({ error: 'Invalid coordinates' });
+    res.status(400).json({ error: 'Invalid coordinates' });
+    return;
   }
 
   // 메시지 정리
-  const cleanMsg =
-    typeof message === 'string' ? message.trim().slice(0, 120) : undefined;
+  const cleanMsg = typeof message === 'string' ? message.trim().slice(0, 120) : undefined;
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10분
@@ -64,14 +68,15 @@ export default async function handler(
   const db = client.db('toilet');
   const signals = db.collection<PaperSignalDoc>('signals');
 
-  // ✅ 사용자 단일 활성 요청 제한 (전 화장실 공통)
+  // 단일 활성 요청 제한
   const existing = await signals.findOne({
     userId,
     canceledAt: { $exists: false },
     expiresAt: { $gt: now },
   });
   if (existing) {
-    return res.status(409).json({ error: 'already_active' });
+    res.status(409).json({ error: 'already_active' });
+    return;
   }
 
   const doc: PaperSignalDoc = {
@@ -88,31 +93,20 @@ export default async function handler(
 
   const result: InsertOneResult<PaperSignalDoc> = await signals.insertOne(doc);
 
-  try {
-    // ✅ 타입 안전한 server 캐스팅
-    const socketWithServer = res.socket as typeof res.socket & {
-      server: HTTPServer;
-    };
+  // 실시간 이벤트 발행
+  await emitToiletEvent(toiletId, 'paper_request', {
+    _id: result.insertedId.toHexString(),
+    toiletId,
+    lat,
+    lng,
+    message: doc.message,
+    userId,
+    createdAt: now.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    acceptedByUserId: null,
+  });
 
-    const io = getSocketServer(socketWithServer.server);
-    const room = `toilet:${toiletId}`;
-    io.to(room).emit('paper_request', {
-      _id: result.insertedId.toHexString(),
-      toiletId,
-      lat,
-      lng,
-      message: doc.message,
-      userId,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      acceptedByUserId: null,
-    });
-    io.to(room).emit('signals_changed', { toiletId });
-  } catch {
-    // dev에서 소켓 서버 초기화 전이면 무시
-  }
-
-  return res.status(201).json({
+  res.status(201).json({
     ok: true,
     id: result.insertedId.toHexString(),
     expiresAt: expiresAt.toISOString(),

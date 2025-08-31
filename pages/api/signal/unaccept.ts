@@ -1,9 +1,8 @@
-// pages/api/signal/unaccept.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import connectDB from '@/lib/mongodb';
 import { ObjectId, type WithId } from 'mongodb';
 import { getUserFromTokenInAPI } from '@/lib/getUserFromTokenInAPI';
-import { getSocketServer } from '@/util/socketServer';
+import { emitToiletEvent } from '@/lib/pusher';
 
 type ApiResp = { ok?: true; error?: string };
 
@@ -12,11 +11,11 @@ interface PaperSignalDoc {
   toiletId: string;
   lat: number;
   lng: number;
-  userId: string;                 // 요청자
+  userId: string;
   message?: string;
   createdAt: Date;
   expiresAt: Date;
-  acceptedByUserId: string | null; // 구원자
+  acceptedByUserId: string | null;
 }
 
 function unwrapValue<T>(res: unknown): WithId<T> | null {
@@ -27,20 +26,33 @@ function unwrapValue<T>(res: unknown): WithId<T> | null {
   return (res as WithId<T> | null) ?? null;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResp>) {
-  if (req.method !== 'POST') return res.status(405).end();
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ApiResp>
+): Promise<void> {
+  if (req.method !== 'POST') {
+    res.status(405).end();
+    return;
+  }
 
   const userId = getUserFromTokenInAPI(req);
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
   const { signalId } = req.body as { signalId?: string };
-  if (!signalId) return res.status(400).json({ error: 'signalId required' });
+  if (!signalId) {
+    res.status(400).json({ error: 'signalId required' });
+    return;
+  }
 
   let _id: ObjectId;
   try {
     _id = new ObjectId(signalId);
   } catch {
-    return res.status(400).json({ error: 'Invalid signalId' });
+    res.status(400).json({ error: 'Invalid signalId' });
+    return;
   }
 
   const client = await connectDB;
@@ -50,37 +62,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   const now = new Date();
   const newExpires = new Date(now.getTime() + 10 * 60 * 1000);
 
-  // ✅ 내가 수락한 건 + 아직 유효한 건만 unaccept (원자적 업데이트)
   const raw = await signals.findOneAndUpdate(
-    {
-      _id,
-      acceptedByUserId: userId,
-      expiresAt: { $gt: now },
-    },
-    {
-      $set: { acceptedByUserId: null, expiresAt: newExpires },
-    },
+    { _id, acceptedByUserId: userId, expiresAt: { $gt: now } },
+    { $set: { acceptedByUserId: null, expiresAt: newExpires } },
     { returnDocument: 'after' }
   );
 
   const updated = unwrapValue<PaperSignalDoc>(raw);
   if (!updated) {
-    return res.status(409).json({ error: 'Not your acceptance or expired' });
+    res.status(409).json({ error: 'Not your acceptance or expired' });
+    return;
   }
 
-  try {
-    const io = getSocketServer();
-    // 다른 엔드포인트와 동일하게 signals_changed 이벤트로 방송
-    io.to(`toilet:${updated.toiletId}`).emit('signals_changed', {
-      type: 'paper_unaccepted',
-      signalId,
-      toiletId: updated.toiletId,
-      acceptedByUserId: null,
-      expiresAt: newExpires.toISOString(),
-    });
-  } catch {
-    /* noop */
-  }
+  await emitToiletEvent(updated.toiletId, 'paper_unaccepted', {
+    signalId,
+    toiletId: updated.toiletId,
+    acceptedByUserId: null,
+    expiresAt: newExpires.toISOString(),
+  });
 
-  return res.status(200).json({ ok: true });
+  res.status(200).json({ ok: true });
 }
