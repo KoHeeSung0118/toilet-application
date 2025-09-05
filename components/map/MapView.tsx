@@ -255,7 +255,7 @@ export default function MapView() {
     ps.keywordSearch(
       '화장실',
       async (data, status) => {
-        if (status !== window.kakao.maps.services.Status.OK) return;
+        if (status !== 'OK') return;
 
         const enriched = await Promise.all(
           (data as KakaoPlace[]).map(async (p) => {
@@ -290,7 +290,7 @@ export default function MapView() {
 
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
-      if (status === window.kakao.maps.services.Status.OK && result[0]) {
+      if (status === 'OK' && result[0]) {
         const { y, x } = result[0];
         const coords = new window.kakao.maps.LatLng(+y, +x);
         (mapRef.current as MapWithPanTo).panTo(coords);
