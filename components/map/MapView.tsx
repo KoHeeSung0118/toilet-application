@@ -12,57 +12,6 @@ import type { Channel } from 'pusher-js';
 
 const Header = dynamic(() => import('@/components/common/Header'), { ssr: false });
 
-declare global {
-  interface Window {
-    __KAKAO_MAPS_LOADED?: boolean;
-    kakao: {
-      maps: {
-        Map: new (...args: unknown[]) => kakao.maps.Map;
-        LatLng: new (lat: number, lng: number) => kakao.maps.LatLng;
-        Marker: new (...args: unknown[]) => kakao.maps.Marker;
-        MarkerImage: new (src: string, size: kakao.maps.Size) => kakao.maps.MarkerImage;
-        Size: new (w: number, h: number) => kakao.maps.Size;
-        CustomOverlay: new (...args: unknown[]) => kakao.maps.CustomOverlay;
-        event: { addListener: (t: object, n: string, f: () => void) => void };
-        load: (cb: () => void) => void;
-        services: {
-          Status: { OK: string };
-          Places: new () => {
-            keywordSearch: (
-              keyword: string,
-              cb: (data: unknown, status: string) => void,
-              opts?: { location?: kakao.maps.LatLng; radius?: number }
-            ) => void;
-          };
-          Geocoder: new () => {
-            addressSearch: (
-              q: string,
-              cb: (result: Array<{ x: string; y: string }>, status: string) => void
-            ) => void;
-          };
-        };
-      };
-    };
-  }
-
-  // 카카오 타입 축약(런타임 객체와 호환되는 최소 시그니처만)
-  namespace kakao {
-    namespace maps {
-      type Map = {
-        setCenter: (latlng: kakao.maps.LatLng) => void;
-        setLevel: (level: number) => void;
-      };
-      type LatLng = {
-        getLat: () => number;
-        getLng: () => number;
-      };
-      type Marker = { setMap: (m: kakao.maps.Map | null) => void; };
-      type MarkerImage = unknown;
-      type Size = unknown;
-      type CustomOverlay = { setMap: (m: kakao.maps.Map | null) => void; };
-    }
-  }
-}
 
 const FILTERS = [
   '화장실 칸 많음',
