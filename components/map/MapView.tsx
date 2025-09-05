@@ -1,7 +1,9 @@
+// C:\Users\SAMSUNG\Desktop\coding\toilet-app\components\map\MapView.tsx
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import Script from 'next/script';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import './MapView.css';
 import { useToilet } from '@/context/ToiletContext';
@@ -13,7 +15,52 @@ const Header = dynamic(() => import('@/components/common/Header'), { ssr: false 
 declare global {
   interface Window {
     __KAKAO_MAPS_LOADED?: boolean;
-    kakao: typeof kakao;
+    kakao: {
+      maps: {
+        Map: new (...args: unknown[]) => kakao.maps.Map;
+        LatLng: new (lat: number, lng: number) => kakao.maps.LatLng;
+        Marker: new (...args: unknown[]) => kakao.maps.Marker;
+        MarkerImage: new (src: string, size: kakao.maps.Size) => kakao.maps.MarkerImage;
+        Size: new (w: number, h: number) => kakao.maps.Size;
+        CustomOverlay: new (...args: unknown[]) => kakao.maps.CustomOverlay;
+        event: { addListener: (t: object, n: string, f: () => void) => void };
+        load: (cb: () => void) => void;
+        services: {
+          Status: { OK: string };
+          Places: new () => {
+            keywordSearch: (
+              keyword: string,
+              cb: (data: unknown, status: string) => void,
+              opts?: { location?: kakao.maps.LatLng; radius?: number }
+            ) => void;
+          };
+          Geocoder: new () => {
+            addressSearch: (
+              q: string,
+              cb: (result: Array<{ x: string; y: string }>, status: string) => void
+            ) => void;
+          };
+        };
+      };
+    };
+  }
+
+  // 카카오 타입 축약(런타임 객체와 호환되는 최소 시그니처만)
+  namespace kakao {
+    namespace maps {
+      type Map = {
+        setCenter: (latlng: kakao.maps.LatLng) => void;
+        setLevel: (level: number) => void;
+      };
+      type LatLng = {
+        getLat: () => number;
+        getLng: () => number;
+      };
+      type Marker = { setMap: (m: kakao.maps.Map | null) => void; };
+      type MarkerImage = unknown;
+      type Size = unknown;
+      type CustomOverlay = { setMap: (m: kakao.maps.Map | null) => void; };
+    }
   }
 }
 
@@ -67,27 +114,19 @@ function dist(a: LatLngGettable, b: LatLngGettable): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-function loadKakao(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.resolve();
-  if (window.__KAKAO_MAPS_LOADED) return Promise.resolve();
-  return new Promise((resolve) => {
-    const existing = document.querySelector<HTMLScriptElement>('#kakao-sdk');
-    if (existing) {
-      if (existing.dataset.loaded === 'true') return resolve();
-      existing.addEventListener('load', () => resolve(), { once: true });
-      return;
-    }
-    const s = document.createElement('script');
-    s.id = 'kakao-sdk';
-    s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services';
-    s.async = true;
-    s.addEventListener('load', () => {
-      window.__KAKAO_MAPS_LOADED = true;
-      s.dataset.loaded = 'true';
-      resolve();
-    }, { once: true });
-    document.head.appendChild(s);
-  });
+function ensureKakaoReady(): boolean {
+  if (typeof window === 'undefined') return false;
+  const m = window.kakao?.maps;
+  return Boolean(
+    m &&
+      m.Map &&
+      m.LatLng &&
+      m.Marker &&
+      m.CustomOverlay &&
+      m.services &&
+      m.services.Places &&
+      m.services.Geocoder
+  );
 }
 
 async function assetExists(path: string): Promise<boolean> {
@@ -130,6 +169,7 @@ export default function MapView() {
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [allToilets, setAllToilets] = useState<Toilet[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [kakaoReady, setKakaoReady] = useState(false);
 
   const queryKeyword = searchParams?.get('query') ?? '';
 
@@ -150,7 +190,7 @@ export default function MapView() {
   };
 
   const addOverlay = useCallback((sig: ActiveSignal): void => {
-    if (!mapRef.current || overlayMapRef.current.has(sig._id)) return;
+    if (!mapRef.current) return;
     const pos = new window.kakao.maps.LatLng(sig.lat, sig.lng);
     const ov = new window.kakao.maps.CustomOverlay({
       position: pos,
@@ -260,6 +300,8 @@ export default function MapView() {
   }, [fetchActiveSignals, pathname, router]);
 
   const searchToilets = useCallback(async (lat: number, lng: number, shouldCenter = false): Promise<void> => {
+    if (!kakaoReady || !ensureKakaoReady() || !mapRef.current) return;
+
     const ps = new window.kakao.maps.services.Places();
     ps.keywordSearch(
       '화장실',
@@ -276,7 +318,7 @@ export default function MapView() {
 
         const converted: Toilet[] = enriched
           .map(t => ({ ...t, lat: toNum(t.y) ?? 0, lng: toNum(t.x) ?? 0 }))
-          .filter(t => t.lat && t.lng);
+          .filter(t => t.lat !== null && t.lng !== null) as Toilet[];
 
         setToiletList(converted);
         localStorage.setItem('toiletList', JSON.stringify(converted));
@@ -292,10 +334,11 @@ export default function MapView() {
       },
       { location: new window.kakao.maps.LatLng(lat, lng), radius: 20000 }
     );
-  }, [drawMarkers, setToiletList]);
+  }, [drawMarkers, setToiletList, kakaoReady]);
 
   const handleQuerySearch = useCallback((keyword: string): void => {
-    if (!keyword) return;
+    if (!keyword || !kakaoReady || !ensureKakaoReady() || !mapRef.current) return;
+
     const geocoder = new window.kakao.maps.services.Geocoder();
     geocoder.addressSearch(keyword, (result, status) => {
       if (status === window.kakao.maps.services.Status.OK && result[0]) {
@@ -307,96 +350,83 @@ export default function MapView() {
         alert('검색 결과가 없습니다.');
       }
     });
-  }, [searchToilets]);
+  }, [searchToilets, kakaoReady]);
 
-  useEffect(() => { if (queryKeyword) handleQuerySearch(queryKeyword); }, [queryKeyword, handleQuerySearch]);
+  // SDK 준비 + 지도 생성 이후에만 쿼리 자동 검색
+  useEffect(() => {
+    if (kakaoReady && ensureKakaoReady() && mapRef.current && queryKeyword) {
+      handleQuerySearch(queryKeyword);
+    }
+  }, [kakaoReady, queryKeyword, handleQuerySearch]);
 
   const cleanupRef = useRef<(() => void) | null>(null);
 
+  // kakaoReady 되면 지도 초기화
   useEffect(() => {
+    if (!kakaoReady || !ensureKakaoReady() || mapRef.current) return;
+
     let canceled = false;
 
-    (async () => {
-      await loadKakao();
+    const initMap = (lat: number, lng: number): void => {
       if (canceled) return;
+      const center = new window.kakao.maps.LatLng(lat, lng);
+      const mapEl = document.getElementById('map');
+      if (!mapEl) return;
 
-      window.kakao.maps.load(() => {
-        const initMap = (lat: number, lng: number): void => {
-          if (canceled) return;
-          const center = new window.kakao.maps.LatLng(lat, lng);
-          const mapEl = document.getElementById('map');
-          if (!mapEl) return;
+      mapRef.current = new window.kakao.maps.Map(mapEl, { center, level: 3 });
+      currentPosRef.current = center;
+      lastSearchCenterRef.current = center as LatLngGettable;
+      lastSearchAtRef.current = Date.now();
 
-          mapRef.current = new window.kakao.maps.Map(mapEl, { center, level: 3 });
-          currentPosRef.current = center;
-          lastSearchCenterRef.current = center as LatLngGettable;
-          lastSearchAtRef.current = Date.now();
+      // Pusher 구독
+      const pusher = getPusher();
+      const ch: Channel = pusher.subscribe('toilet-global');
 
-          // Pusher 전역 채널 구독
-          const pusher = getPusher();
-          const ch: Channel = pusher.subscribe('toilet-global');
+      const reSync = (): void => {
+        const ids = Array.from(markersByIdRef.current.keys());
+        void fetchActiveSignals(ids);
+      };
 
-          const reSync = (): void => {
-            const ids = Array.from(markersByIdRef.current.keys());
-            void fetchActiveSignals(ids);
-          };
+      ch.bind('signals_changed', reSync);
 
-          ch.bind('signals_changed', reSync);
+      const pollId = window.setInterval(reSync, 20000);
+      const onFocus = (): void => reSync();
+      window.addEventListener('focus', onFocus);
 
-          const pollId = window.setInterval(reSync, 20000);
-          const onFocus = (): void => reSync();
-          window.addEventListener('focus', onFocus);
+      cleanupRef.current = () => {
+        ch.unbind('signals_changed', reSync);
+        pusher.unsubscribe('toilet-global');
+        window.clearInterval(pollId);
+        window.removeEventListener('focus', onFocus);
+      };
 
-          cleanupRef.current = () => {
-            ch.unbind('signals_changed', reSync);
-            pusher.unsubscribe('toilet-global');
-            window.clearInterval(pollId);
-            window.removeEventListener('focus', onFocus);
-          };
+      requestAnimationFrame(() => searchToilets(lat, lng, false));
 
-          requestAnimationFrame(() => searchToilets(lat, lng, false));
-          if (queryKeyword) handleQuerySearch(queryKeyword);
+      window.kakao.maps.event.addListener(mapRef.current!, 'idle', () => {
+        if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = window.setTimeout(() => {
+          const c = (mapRef.current as MapWithGetCenter).getCenter() as LatLngGettable;
+          const last = lastSearchCenterRef.current;
+          const movedEnough = !last || dist(last, c) >= SEARCH_DISTANCE_M;
+          const coolEnough = Date.now() - lastSearchAtRef.current >= SEARCH_COOLDOWN_MS;
 
-          window.kakao.maps.event.addListener(mapRef.current!, 'idle', () => {
-            if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
-            idleTimerRef.current = window.setTimeout(() => {
-              const c = (mapRef.current as MapWithGetCenter).getCenter() as LatLngGettable;
-              const last = lastSearchCenterRef.current;
-              const movedEnough = !last || dist(last, c) >= SEARCH_DISTANCE_M;
-              const coolEnough = Date.now() - lastSearchAtRef.current >= SEARCH_COOLDOWN_MS;
-
-              if (movedEnough && coolEnough) {
-                searchToilets(c.getLat(), c.getLng(), false);
-              }
-            }, 400);
-          });
-        };
-
-        navigator.geolocation.getCurrentPosition(
-          (pos) => initMap(pos.coords.latitude, pos.coords.longitude),
-          ()   => initMap(37.5665, 126.9780),
-          { enableHighAccuracy: false, maximumAge: 10000, timeout: 5000 }
-        );
+          if (movedEnough && coolEnough) {
+            searchToilets(c.getLat(), c.getLng(), false);
+          }
+        }, 400);
       });
-    })();
+    };
 
-    const overlayMapAtMount = overlayMapRef.current;
-    const markersMapAtMount = markersByIdRef.current;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => initMap(pos.coords.latitude, pos.coords.longitude),
+      ()   => initMap(37.5665, 126.9780),
+      { enableHighAccuracy: false, maximumAge: 10000, timeout: 5000 }
+    );
 
     return () => {
       canceled = true;
-
-      cleanupRef.current?.();
-
-      const overlaysSnapshot = Array.from(overlayMapAtMount.values());
-      overlaysSnapshot.forEach(ov => ov.setMap(null));
-      overlayMapAtMount.clear();
-
-      const markersSnapshot = Array.from(markersMapAtMount.values());
-      markersSnapshot.forEach(m => m.setMap(null));
-      markersMapAtMount.clear();
     };
-  }, [queryKeyword, searchToilets, handleQuerySearch, fetchActiveSignals]);
+  }, [kakaoReady, fetchActiveSignals, searchToilets]);
 
   useEffect(() => {
     let currentMarker: kakao.maps.Marker | null = null;
@@ -457,6 +487,18 @@ export default function MapView() {
 
   return (
     <div className="map-wrapper">
+      {/* Kakao SDK: autoload=false + services, onLoad에서 maps.load 호출 */}
+      <Script
+        id="kakao-sdk"
+        strategy="afterInteractive"
+        src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services"
+        onLoad={() => {
+          window.kakao.maps.load(() => {
+            setKakaoReady(true);
+          });
+        }}
+      />
+
       <Header />
       <div className="top-ui">
         <button
