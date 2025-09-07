@@ -127,11 +127,17 @@ export default function MapView() {
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // ★ 추가: 이미 SDK가 로드된 상태(재방문)에서도 kakaoReady를 보장
+  /**
+   * ⛳️ 변경 포인트: (window as any) 제거
+   * - Window에 kakao가 있을 수 있는 구조적 타입을 만들어 안전하게 접근
+   */
+  type WindowWithKakao = Window & { kakao?: typeof kakao };
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).kakao?.maps?.load) {
-      // 이미 스크립트가 존재하면 load 콜백이 즉시/성공 시점에 호출됨
-      (window as any).kakao.maps.load(() => setKakaoReady(true));
+    if (typeof window !== 'undefined') {
+      const w = window as WindowWithKakao;
+      if (w.kakao?.maps?.load) {
+        w.kakao.maps.load(() => setKakaoReady(true));
+      }
     }
   }, []);
 
@@ -379,7 +385,7 @@ export default function MapView() {
       { enableHighAccuracy: false, maximumAge: 10000, timeout: 5000 }
     );
 
-    // ★ 변경: 언마운트 시 실제 정리 로직 실행
+    // 클린업
     return () => {
       canceled = true;
       cleanupRef.current?.();
@@ -459,7 +465,6 @@ export default function MapView() {
         strategy="afterInteractive"
         src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services"
         onLoad={() => {
-          // 최초 로드 시
           window.kakao.maps.load(() => {
             setKakaoReady(true);
           });
