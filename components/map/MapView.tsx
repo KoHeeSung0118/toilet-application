@@ -1,4 +1,4 @@
-// C:\Users\SAMSUNG\Desktop\coding\toilet-app\components\map\MapView.tsx
+// components/map/MapView.tsx
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -11,7 +11,6 @@ import { getPusher } from '@/lib/pusher-client';
 import type { Channel } from 'pusher-js';
 
 const Header = dynamic(() => import('@/components/common/Header'), { ssr: false });
-
 
 const FILTERS = [
   '화장실 칸 많음',
@@ -126,6 +125,14 @@ export default function MapView() {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // ★ 추가: 이미 SDK가 로드된 상태(재방문)에서도 kakaoReady를 보장
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).kakao?.maps?.load) {
+      // 이미 스크립트가 존재하면 load 콜백이 즉시/성공 시점에 호출됨
+      (window as any).kakao.maps.load(() => setKakaoReady(true));
+    }
   }, []);
 
   const makePulseContent = (): HTMLDivElement => {
@@ -372,8 +379,18 @@ export default function MapView() {
       { enableHighAccuracy: false, maximumAge: 10000, timeout: 5000 }
     );
 
+    // ★ 변경: 언마운트 시 실제 정리 로직 실행
     return () => {
       canceled = true;
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+      currentOverlayRef.current?.setMap?.(null);
+      currentOverlayRef.current = null;
+      overlayMapRef.current.forEach(o => o.setMap(null));
+      overlayMapRef.current.clear();
+      markersByIdRef.current.forEach(m => m.setMap(null));
+      markersByIdRef.current.clear();
+      mapRef.current = null;
     };
   }, [kakaoReady, fetchActiveSignals, searchToilets]);
 
@@ -442,6 +459,7 @@ export default function MapView() {
         strategy="afterInteractive"
         src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=a138b3a89e633c20573ab7ccb1caca22&autoload=false&libraries=services"
         onLoad={() => {
+          // 최초 로드 시
           window.kakao.maps.load(() => {
             setKakaoReady(true);
           });
