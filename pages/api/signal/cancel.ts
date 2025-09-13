@@ -53,7 +53,7 @@ export default async function handler(
   }
 
   const client = await connectDB;
-  const db = client.db('toilet');
+  const db = client.db(process.env.MONGODB_DB ?? 'toilet_app');
   const signals = db.collection<DbDoc>('signals');
 
   const now = new Date();

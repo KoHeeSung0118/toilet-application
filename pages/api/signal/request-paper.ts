@@ -65,7 +65,7 @@ export default async function handler(
   const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10분
 
   const client = await connectDB;
-  const db = client.db('toilet');
+  const db = client.db(process.env.MONGODB_DB ?? 'toilet_app');
   const signals = db.collection<PaperSignalDoc>('signals');
 
   // 단일 활성 요청 제한

@@ -77,7 +77,7 @@ export default function LoginPage() {
           />
           로그인 정보 저장
         </label>
-
+ 
         <button type="submit" className="login-button" disabled={loading}>
           {loading ? '로딩 중...' : '로그인'}
         </button>
