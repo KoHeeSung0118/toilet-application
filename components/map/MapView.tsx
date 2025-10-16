@@ -67,13 +67,13 @@ function ensureKakaoReady(): boolean {
   const m = window.kakao?.maps;
   return Boolean(
     m &&
-      m.Map &&
-      m.LatLng &&
-      m.Marker &&
-      m.CustomOverlay &&
-      m.services &&
-      m.services.Places &&
-      m.services.Geocoder
+    m.Map &&
+    m.LatLng &&
+    m.Marker &&
+    m.CustomOverlay &&
+    m.services &&
+    m.services.Places &&
+    m.services.Geocoder
   );
 }
 
@@ -381,7 +381,7 @@ export default function MapView() {
 
     navigator.geolocation.getCurrentPosition(
       (pos) => initMap(pos.coords.latitude, pos.coords.longitude),
-      ()   => initMap(37.5665, 126.9780),
+      () => initMap(37.5665, 126.9780),
       { enableHighAccuracy: false, maximumAge: 10000, timeout: 5000 }
     );
 

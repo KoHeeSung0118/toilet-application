@@ -17,7 +17,7 @@ export default function DirectionsButton({ placeName, lat, lng }: DirectionsButt
     }
 
     const url = `https://map.kakao.com/link/to/${encodeURIComponent(
-      placeName,
+      placeName
     )},${lat},${lng}`;
 
     window.open(url, '_blank', 'noopener,noreferrer');
